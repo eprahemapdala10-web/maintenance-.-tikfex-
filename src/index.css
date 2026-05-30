@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Cairo", sans-serif;
+  --color-brand-orange: #38bdf8;
+  --color-brand-orange-dark: #0284c7;
+  --color-brand-green: #25d366;
+  --color-brand-green-dark: #128c7e;
+  --color-brand-bg: #0a0a0c;
+  --color-brand-card: #111114;
+  --color-brand-input: #1b1b1f;
+}
+
