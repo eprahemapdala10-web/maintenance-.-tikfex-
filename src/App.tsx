@@ -1505,12 +1505,14 @@ ${orderItemsList}
                     <div className="space-y-1.5">
                       <label className="text-xs text-slate-400 font-bold block">كلمة المرور الكودية للورشة</label>
                       <input 
+                        id="admin-password-input"
                         type="password"
                         placeholder="••••••••"
                         value={adminPassword}
                         onChange={(e) => setAdminPassword(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter") handleAdminLogin(); }}
                         className="w-full py-3 px-4 rounded-none bg-brand-input border border-white/15 text-white text-sm outline-none focus:border-brand-orange text-center tracking-widest font-bold font-mono"
+                        autoFocus
                       />
                     </div>
 
@@ -2096,7 +2098,15 @@ ${orderItemsList}
               setIsAdminAuthenticated(false);
               triggerToast("تم تسجيل الخروج بنجاح كمسؤول");
             } else {
-              setIsAdminLoginVisible(true);
+              setAdminError("");
+              setActiveTab("admin");
+              window.scrollTo(0, 0);
+              setTimeout(() => {
+                const input = document.getElementById("admin-password-input");
+                if (input) {
+                  input.focus();
+                }
+              }, 100);
             }
           }}
           className="text-xs text-slate-400 hover:text-brand-orange font-black py-2.5 px-5 border border-white/10 bg-[#111114] hover:bg-[#1b1b1f] hover:border-brand-orange/40 rounded-none transition-all cursor-pointer inline-flex items-center gap-2 select-none"
@@ -2112,86 +2122,6 @@ ${orderItemsList}
           )}
         </button>
       </div>
-
-      {/* SECURE ADMIN LOGIN MODAL OVERLAY PORTAL */}
-      <AnimatePresence>
-        {isAdminLoginVisible && !isAdminAuthenticated && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.85 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsAdminLoginVisible(false)}
-              className="fixed inset-0 bg-black/95 backdrop-blur-md cursor-pointer"
-            />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              transition={{ type: "spring", duration: 0.4 }}
-              className="bg-[#111114] border border-white/15 w-full max-w-md relative z-10 p-8 shadow-2xl overflow-hidden rounded-none text-right"
-              dir="rtl"
-            >
-              <button 
-                onClick={() => setIsAdminLoginVisible(false)}
-                className="absolute top-4 left-4 z-20 w-8 h-8 rounded-none bg-black/85 border border-white/10 text-white flex items-center justify-center hover:bg-brand-orange hover:text-black hover:border-transparent transition-all cursor-pointer text-xs font-bold"
-              >
-                ✕
-              </button>
-
-              <div className="text-center space-y-3 mb-6">
-                <div className="w-14 h-14 bg-brand-orange/10 border border-brand-orange/20 mx-auto flex items-center justify-center text-2xl font-bold">
-                  🔐
-                </div>
-                <h3 className="text-white font-black text-lg">بوابة دخول الإدارة والتحكم</h3>
-                <p className="text-slate-400 text-xs leading-relaxed">أدخل الرقم السري المعتمد للورشة لتعديل جرد الأسعار والمبيعات المتوفرة فوراً وإدارة مسار التواصل المباشر.</p>
-              </div>
-
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs text-slate-400 font-bold block">رقم المرور الخاص بالورشة</label>
-                  <input 
-                    type="password"
-                    placeholder="••••••••"
-                    value={adminPassword}
-                    onChange={(e) => setAdminPassword(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") handleAdminLogin(); }}
-                    className="w-full py-3 px-4 rounded-none bg-brand-input border border-white/15 text-white text-sm outline-none focus:border-brand-orange text-center tracking-widest font-bold font-mono"
-                    autoFocus
-                  />
-                </div>
-
-                <button 
-                  type="button"
-                  onClick={() => {
-                    if (adminPassword === ADMIN_PASS) {
-                      setIsAdminAuthenticated(true);
-                      setAdminError("");
-                      setIsAdminLoginVisible(false);
-                      setActiveTab("admin");
-                      triggerToast("تم تسجيل الدخول بنجاح كمسؤول");
-                      window.scrollTo({ top: 0, behavior: "smooth" });
-                    } else {
-                      setAdminError("كلمة المرور غير صحيحة، حاول مجدداً");
-                    }
-                  }}
-                  className="w-full py-3 px-4 rounded-none bg-brand-orange hover:bg-brand-orange-dark text-black text-xs font-black transition-all cursor-pointer shadow-md"
-                >
-                  تأكيد الولوج وفتح التحكم ✓
-                </button>
-              </div>
-
-              {adminError && (
-                <p className="text-red-400 text-xs text-center font-bold bg-red-500/5 py-2 mt-4 border border-red-500/10 animate-shake">
-                  ⚠️ {adminError}
-                </p>
-              )}
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-
 
       {/* ADMIN FLOATING TOAST NOTIFICATION */}
       <AnimatePresence>
