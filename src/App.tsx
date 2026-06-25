@@ -28,14 +28,24 @@ import {
   Info,
   Sliders,
   Settings,
-  ArrowLeftRight
+  ArrowLeftRight,
+  ShoppingBag
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { Part, CartItem, MaintenanceData, TradeInData, PartCategory } from "./types";
+import { Part, CartItem, MaintenanceData, TradeInData, PartCategory, Technician, CustomerRecord, CoverageArea, Appliance } from "./types";
 
 // Default configuration & static data
 const DEFAULT_WA = "201117735952";
 const ADMIN_PASS = "1234";
+
+// Function to get active cities based on coverage areas
+const getCitiesForGov = (govName: string, currentCovAreas: CoverageArea[]) => {
+  const activeInCov = currentCovAreas
+    .filter(area => area.gov === govName && area.active)
+    .map(area => area.name.trim());
+
+  return activeInCov;
+};
 
 const DEFAULT_PARTS: Part[] = [
   { id: 1, name: "شعلة بوتجاز يونيفرسال", cat: "cooker", price: 85, icon: "🔥", img: "", desc: "تناسب معظم ماركات البوتجازات ومصنوعة من خامات معالجة ضد الحرارة", avail: true },
@@ -49,8 +59,46 @@ const DEFAULT_PARTS: Part[] = [
 ];
 
 const BRANDS_DATA = {
-  "بوتجاز": ["كريازي", "شارب", "تيكا", "كونكورد", "أمريكانا", "زانوسي", "آرديم", "هاير", "يونيون إير", "أخرى"],
-  "سخان غاز": ["جوناي", "إيتال", "كريازي", "فريش", "تيرما", "هاميلتون", "كليما", "أخرى"]
+  "بوتجاز": [
+    "يونيفرسال",
+    "كريازي",
+    "فريش",
+    "زانوسي",
+    "يونيون إير",
+    "لا جيرمانيا",
+    "جليم غاز",
+    "وايت بوينت",
+    "توشيبا",
+    "تورنيدو",
+    "شارب",
+    "تيكا",
+    "وايت ويل",
+    "بوش",
+    "أريستون",
+    "كونكورد",
+    "أمريكانا",
+    "آرديم",
+    "هاير",
+    "أخرى"
+  ],
+  "سخان غاز": [
+    "يونيفرسال",
+    "كريازي",
+    "فريش",
+    "أوليمبك هيروز",
+    "تورنيدو",
+    "جوناي",
+    "إيتال",
+    "زانوسي",
+    "تيرما",
+    "هاميلتون",
+    "كليما",
+    "توشيبا",
+    "أريستون",
+    "بوش",
+    "مصانع حربية 360",
+    "أخرى"
+  ]
 };
 
 const PROBLEMS_DATA = {
@@ -58,24 +106,182 @@ const PROBLEMS_DATA = {
   "سخان غاز": ["لا يشتعل", "ضعف اللهب", "تسريب ماء", "تسريب غاز", "صوت غير طبيعي", "أخرى"]
 };
 
-const COV_AREAS = [
-  "مدينة الحوامدية",
-  "البدرشين",
-  "منيل شيحة",
-  "طموة",
-  "سقارة",
-  "المريوطية",
-  "أم خنان",
-  "منى الأمير",
-  "عرب التل"
+const egyptData: { [key: string]: string[] } = {
+  "الجيزة": [
+    "الحوامدية",
+    "البدرشين",
+    "منيل شيحة",
+    "أم خنان",
+    "منى الأمير",
+    "أبو صير",
+    "سقارة",
+    "المريوطية",
+    "أبو النمرس",
+    "طموة"
+  ],
+  "القاهرة": [
+    "المعادي",
+    "حلوان",
+    "مصر الجديدة",
+    "مدينة نصر",
+    "وسط البلد",
+    "شبرا",
+    "التجمع الخامس",
+    "المرج",
+    "عين شمس"
+  ],
+  "القليوبية": [
+    "بنها",
+    "شبرا الخيمة",
+    "قليوب",
+    "الخانكة",
+    "طوخ"
+  ],
+  "الإسكندرية": [
+    "سموحة",
+    "ميامي",
+    "المنتزة",
+    "العجمي",
+    "سيدي بشر",
+    "وسط البلد"
+  ]
+};
+
+const DEFAULT_COV_AREAS: CoverageArea[] = [];
+Object.entries(egyptData).forEach(([gov, cities]) => {
+  cities.forEach(city => {
+    const isGizaTarget = gov === "الجيزة" && [
+      "الحوامدية",
+      "البدرشين",
+      "منيل شيحة",
+      "أم خنان",
+      "منى الأمير",
+      "أبو صير",
+      "سقارة",
+      "المريوطية"
+    ].includes(city);
+    
+    DEFAULT_COV_AREAS.push({
+      name: city,
+      active: isGizaTarget,
+      gov: gov
+    });
+  });
+});
+
+
+const formatEgyptPhone = (phone: string): string => {
+  let clean = phone.replace(/\D/g, "");
+  if (!clean) return "";
+  if (clean.startsWith("20") && clean.length >= 11) {
+    return clean;
+  }
+  if (clean.startsWith("0")) {
+    clean = clean.substring(1);
+  }
+  return "20" + clean;
+};
+
+const DEFAULT_TECHNICIANS: Technician[] = [
+  { id: 1, name: "م. أحمد عبد العزيز", phone: "201117735952", city: "الحوامدية", cities: ["الحوامدية", "أم خنان", "سقارة"], specialties: ["بوتجاز", "سخان غاز"] },
+  { id: 2, name: "م. محمود فاروق", phone: "201012345678", city: "البدرشين", cities: ["البدرشين", "أبو صير", "منى الأمير"], specialties: ["بوتجاز"] },
+  { id: 3, name: "م. مصطفى الجيزاوي", phone: "201211112222", city: "منيل شيحة", cities: ["منيل شيحة", "المريوطية"], specialties: ["سخان غاز"] },
+  { id: 4, name: "م. كريم علام", phone: "201055556666", city: "أم خنان", cities: ["أم خنان", "الحوامدية"], specialties: ["بوتجاز", "سخان غاز"] },
+  { id: 5, name: "م. سامي الأمير", phone: "201299990000", city: "منى الأمير", cities: ["منى الأمير", "البدرشين"], specialties: ["سخان غاز"] },
+  { id: 6, name: "م. سعيد البصير", phone: "201144445555", city: "أبو صير", cities: ["أبو صير", "سقارة"], specialties: ["بوتجاز"] },
+  { id: 7, name: "م. هاني السقاري", phone: "201177778888", city: "سقارة", cities: ["سقارة", "المريوطية"], specialties: ["بوتجاز", "سخان غاز"] },
+  { id: 8, name: "م. شريف المريوطي", phone: "201522223333", city: "المريوطية", cities: ["المريوطية", "منيل شيحة"], specialties: ["سخان غاز", "بوتجاز"] }
+];
+
+const DEFAULT_CUSTOMERS: CustomerRecord[] = [
+  { id: "cust-1", name: "محمود سيد الشامي", phone: "201555566611", city: "مدينة الحوامدية", address: "شارع الجمهورية - أمام مسجد التوحيد", serviceType: "طلب صيانة", details: "صيانة بوتجاز - الماركة: كريازي - المشكلة: انسداد الشعلات الثلاثة", timestamp: "30/05/2026, 09:30:15 ص" },
+  { id: "cust-2", name: "علاء حسني البدرشيني", phone: "201012344321", city: "البدرشين", address: "بجوار محطة القطار - برج الهدى ص1", serviceType: "شراء قطع غيار", details: "ترموستات سخان غاز (عدد 1)، صمام أمان سخان غاز (عدد 1)", timestamp: "29/05/2026, 04:15:33 م" },
+  { id: "cust-3", name: "فاطمة أحمد منيل شيحة", phone: "201271112223", city: "منيل شيحة", address: "شارع البحر الأعظم - خلف صيدلية السلام", serviceType: "تجديد", details: "تجديد سخان غاز - ماركة: جوناي (عمر: 4 سنوات - حالة: متهالك وجيد)", timestamp: "28/05/2026, 11:22:10 ص" },
+  { id: "cust-4", name: "شريف عبد العزيز طموة", phone: "201149998887", city: "طموة", address: "طريق مصر-أسيوط الزراعي - مدخل طموة", serviceType: "طلب صيانة", details: "صيانة سخان غاز - الماركة: فريش - المشكلة: تسريب غاز وضعف اللهب", timestamp: "27/05/2026, 08:44:00 ص" },
+];
+
+const DEFAULT_APPLIANCES: Appliance[] = [
+  {
+    id: 1,
+    deviceType: "ثلاجة",
+    brand: "توشيبا 3 باب نوفروست",
+    condition: "ممتازة كالجديدة",
+    usageDuration: "سنة واحدة",
+    price: 12500,
+    imageUrl: "https://images.unsplash.com/photo-1571887455899-41d2ded28a64?auto=format&fit=crop&q=80&w=600",
+    details: "ثلاجة توشيبا بحالة متميزة جداً، تبريد هائل، لا يوجد بها أي خدوش، مع ضمان متبقي 4 سنوات."
+  },
+  {
+    id: 2,
+    deviceType: "بوتاجاز",
+    brand: "يونيفرسال 5 شعلة استانلس",
+    condition: "جيدة جداً",
+    usageDuration: "سنتين",
+    price: 4800,
+    imageUrl: "https://images.unsplash.com/photo-1590794056226-79ef3a8147e1?auto=format&fit=crop&q=80&w=600",
+    details: "بوتاجاز يونيفرسال 5 شعلة، عيون نحاسية شعلة قوية، شواية دوارة تعمل بكفاءة تامة."
+  },
+  {
+    id: 3,
+    deviceType: "سخان",
+    brand: "أوليمبيك غاز ديجيتال 10 لتر",
+    condition: "ممتازة",
+    usageDuration: "6 أشهر",
+    price: 2900,
+    imageUrl: "https://images.unsplash.com/photo-1585338107529-13afc5f02586?auto=format&fit=crop&q=80&w=600",
+    details: "سخان غاز طبيعي ديجيتال أوليمبيك، يعمل مع أقل ضغط مياه، موفر للغاز ومزود بعوامل أمان كاملة."
+  }
 ];
 
 export default function App() {
   // Navigation & UI States
-  const [activeTab, setActiveTab] = useState<"home" | "maintenance" | "parts" | "tradein" | "admin">("home");
+  const [activeTab, setActiveTab] = useState<"home" | "maintenance" | "parts" | "tradein" | "appliances" | "admin" >("home");
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
   const [successOrderRef, setSuccessOrderRef] = useState("#00000");
+  const [assignedTech, setAssignedTech] = useState<Technician | null>(null);
+
+  // Branded Appliance States
+  const [appliances, setAppliances] = useState<Appliance[]>(() => {
+    try {
+      const saved = localStorage.getItem("tf_appliances");
+      return saved ? JSON.parse(saved) : DEFAULT_APPLIANCES;
+    } catch {
+      return DEFAULT_APPLIANCES;
+    }
+  });
+
+  const saveAppliancesToStorage = (updated: Appliance[]) => {
+    setAppliances(updated);
+    try {
+      localStorage.setItem("tf_appliances", JSON.stringify(updated));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // Add new appliance states
+  const [newAppType, setNewAppType] = useState("بوتاجاز");
+  const [newAppBrand, setNewAppBrand] = useState("");
+  const [newAppCondition, setNewAppCondition] = useState("");
+  const [newAppUsage, setNewAppUsage] = useState("");
+  const [newAppPrice, setNewAppPrice] = useState<number | "">("");
+  const [newAppImage, setNewAppImage] = useState("");
+  const [newAppDetails, setNewAppDetails] = useState("");
+
+  // Customer appliance purchase modal state
+  const [selectedApplianceForOrder, setSelectedApplianceForOrder] = useState<Appliance | null>(null);
+  const [orderClientName, setOrderClientName] = useState("");
+  const [orderClientPhone, setOrderClientPhone] = useState("");
+  const [orderClientAddress, setOrderClientAddress] = useState("");
+  const [orderClientGov, setOrderClientGov] = useState("الجيزة");
+  const [orderClientCity, setOrderClientCity] = useState("");
+
+  // Cascading location states
+  const [mFormGov, setMFormGov] = useState("الجيزة");
+  const [tiFormGov, setTiFormGov] = useState("الجيزة");
+  const [checkGov, setCheckGov] = useState("الجيزة");
+  const [newTechGov, setNewTechGov] = useState("الجيزة");
 
   // Dynamic config loaded from localStorage safely
   const [parts, setParts] = useState<Part[]>(() => {
@@ -105,6 +311,325 @@ export default function App() {
   const [adminError, setAdminError] = useState("");
   const [adminToast, setAdminToast] = useState("");
   const [activeZoomedPart, setActiveZoomedPart] = useState<Part | null>(null);
+
+  // Admin sub-tab & Technician/Customer states
+  const [adminSubTab, setAdminSubTab] = useState<"inventory" | "appliances_sale" | "customers" | "technicians" | "areas">("inventory");
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const [customConfirm, setCustomConfirm] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  } | null>(null);
+
+  const [customAlert, setCustomAlert] = useState<{
+    show: boolean;
+    message: string;
+  } | null>(null);
+
+  const alert = (msg: string) => {
+    setCustomAlert({
+      show: true,
+      message: msg
+    });
+  };
+
+  const [covAreas, setCovAreas] = useState<CoverageArea[]>(() => {
+    try {
+      const dbVersion = localStorage.getItem("tf_db_version");
+      const saved = localStorage.getItem("tf_cov_areas");
+      
+      if (dbVersion === "3.0" && saved) {
+        const parsed: any[] = JSON.parse(saved);
+        
+        // Build a Map of existing items by name for fast lookup
+        const savedMap = new Map<string, any>();
+        parsed.forEach(item => {
+          if (item && item.name) {
+            savedMap.set(item.name.trim(), item);
+          }
+        });
+
+        // Merge DEFAULT_COV_AREAS with saved overrides
+        const merged: CoverageArea[] = DEFAULT_COV_AREAS.map(def => {
+          const savedItem = savedMap.get(def.name.trim());
+          if (savedItem) {
+            return {
+              ...def,
+              active: savedItem.active !== undefined ? savedItem.active : def.active,
+              gov: savedItem.gov || def.gov
+            };
+          }
+          return def;
+        });
+
+        // Add any completely custom user-added areas that are not in DEFAULT_COV_AREAS
+        const defaultNamesSet = new Set(DEFAULT_COV_AREAS.map(d => d.name.trim()));
+        parsed.forEach(item => {
+          if (item && item.name && !defaultNamesSet.has(item.name.trim())) {
+            merged.push({
+              name: item.name.trim(),
+              active: item.active !== undefined ? item.active : true,
+              gov: item.gov || "الجيزة"
+            });
+          }
+        });
+
+        return merged;
+      }
+      
+      const activeTargetCities = ["الحوامدية", "البدرشين", "منيل شيحة", "أم خنان", "منى الأمير", "أبو صير", "سقارة", "المريوطية", "طموة"];
+      const updatedAreas = DEFAULT_COV_AREAS.map(area => {
+        if (activeTargetCities.includes(area.name.trim())) {
+          return { ...area, active: true };
+        }
+        return area;
+      });
+      
+      localStorage.setItem("tf_cov_areas", JSON.stringify(updatedAreas));
+      return updatedAreas;
+    } catch {
+      return DEFAULT_COV_AREAS;
+    }
+  });
+
+  const saveCovAreasToStorage = (updated: CoverageArea[]) => {
+    setCovAreas(updated);
+    try {
+      localStorage.setItem("tf_cov_areas", JSON.stringify(updated));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const activeAreas = useMemo(() => covAreas.filter(a => a.active).map(a => a.name), [covAreas]);
+  const [newAreaName, setNewAreaName] = useState("");
+  const [newAreaGov, setNewAreaGov] = useState("الجيزة");
+
+  const [technicians, setTechnicians] = useState<Technician[]>(() => {
+    try {
+      const dbVersion = localStorage.getItem("tf_db_version");
+      const saved = localStorage.getItem("tf_technicians");
+      
+      if (dbVersion === "3.0" && saved) {
+        return JSON.parse(saved);
+      }
+      
+      let existing: any[] = [];
+      if (saved) {
+        try {
+          existing = JSON.parse(saved);
+        } catch {
+          existing = [];
+        }
+      }
+      
+      const customTechs = existing.filter(tech => {
+        if (!tech) return false;
+        const id = Number(tech.id);
+        // Retain user custom added technicians (usually ID >= 100 or non-default IDs)
+        const defaultIds = new Set(DEFAULT_TECHNICIANS.map(t => t.id));
+        return !defaultIds.has(id);
+      }).map(tech => {
+        // Upgrade format to include cities array and specialties if missing
+        const city = tech.city || "";
+        const cities = Array.isArray(tech.cities) ? tech.cities : (city ? [city] : []);
+        const specialties = Array.isArray(tech.specialties) ? tech.specialties : ["بوتجاز", "سخان غاز"];
+        return {
+          ...tech,
+          city: cities[0] || city,
+          cities,
+          specialties,
+          phone: formatEgyptPhone(tech.phone || "")
+        };
+      });
+      
+      const mergedTechs = [
+        ...DEFAULT_TECHNICIANS.map(t => ({
+          ...t,
+          phone: formatEgyptPhone(t.phone)
+        })),
+        ...customTechs
+      ];
+      
+      localStorage.setItem("tf_technicians", JSON.stringify(mergedTechs));
+      localStorage.setItem("tf_db_version", "3.0");
+      return mergedTechs;
+    } catch {
+      return DEFAULT_TECHNICIANS;
+    }
+  });
+
+  const [customers, setCustomers] = useState<CustomerRecord[]>(() => {
+    try {
+      const saved = localStorage.getItem("tf_customers");
+      return saved ? JSON.parse(saved) : DEFAULT_CUSTOMERS;
+    } catch {
+      return DEFAULT_CUSTOMERS;
+    }
+  });
+
+  const [newTechName, setNewTechName] = useState("");
+  const [newTechPhone, setNewTechPhone] = useState("");
+  const [newTechCity, setNewTechCity] = useState("الحوامدية");
+  const [newTechSpecs, setNewTechSpecs] = useState<string[]>(["بوتجاز", "سخان غاز"]);
+  const [newTechSelectedCities, setNewTechSelectedCities] = useState<string[]>(["الحوامدية"]);
+  
+  const [editingTechId, setEditingTechId] = useState<number | null>(null);
+  const [areasTabEditingTechId, setAreasTabEditingTechId] = useState<number | null>(null);
+  const [editTechName, setEditTechName] = useState("");
+  const [editTechPhone, setEditTechPhone] = useState("");
+  const [editTechSpecs, setEditTechSpecs] = useState<string[]>([]);
+  const [editTechCities, setEditTechCities] = useState<string[]>([]);
+
+  const [selectedCusts, setSelectedCusts] = useState<string[]>([]);
+  const [bulkMessageText, setBulkMessageText] = useState("شريكنا الكريم من تك فيكس 🛠️، نود التذكير بأهمية جدولة الصيانة الوقائية السنوية للبوتجاز والسخان لضمان أقصى حماية وكفاءة لسلامة عائلتكم. حرك الطلب الآن بخصم 15%!");
+  const [singleOffers, setSingleOffers] = useState<{[key: string]: string}>({});
+
+  const saveTechniciansToStorage = (updated: Technician[]) => {
+    setTechnicians(updated);
+    try {
+      localStorage.setItem("tf_technicians", JSON.stringify(updated));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const saveCustomersToStorage = (updated: CustomerRecord[]) => {
+    setCustomers(updated);
+    try {
+      localStorage.setItem("tf_customers", JSON.stringify(updated));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const saveCustomerRecord = (record: Omit<CustomerRecord, "id">) => {
+    const newRecord: CustomerRecord = {
+      ...record,
+      phone: formatEgyptPhone(record.phone),
+      id: "cust-" + Date.now() + "-" + Math.floor(Math.random() * 1000)
+    };
+    setCustomers(prev => {
+      const updated = [newRecord, ...prev];
+      try {
+        localStorage.setItem("tf_customers", JSON.stringify(updated));
+      } catch (e) {
+        console.error(e);
+      }
+      return updated;
+    });
+  };
+
+  // Log of custom automated routing requests (customRequestsLog)
+  const [customRequestsLog, setCustomRequestsLog] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem("tf_customRequestsLog");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const saveCustomRequestsLog = (updatedLog: any[]) => {
+    setCustomRequestsLog(updatedLog);
+    try {
+      localStorage.setItem("tf_customRequestsLog", JSON.stringify(updatedLog));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // Normalize Arabic letters for robust matching of cities and specialties
+  const normalizeArabic = (str: string): string => {
+    if (!str) return "";
+    return str
+      .trim()
+      .replace(/[أإآ]/g, "ا")
+      .replace(/ة/g, "ه")
+      .replace(/ى/g, "ي")
+      .replace(/بوتاجاز/g, "بوتجاز")
+      .replace(/\s+/g, " ");
+  };
+
+  // Robust fuzzy matching for cities
+  const isCityMatch = (cityA: string, cityB: string): boolean => {
+    const normA = normalizeArabic(cityA);
+    const normB = normalizeArabic(cityB);
+    if (!normA || !normB) return false;
+    
+    // 1. Exact match after normalization
+    if (normA === normB) return true;
+    
+    // 2. Substring match
+    if (normA.includes(normB) || normB.includes(normA)) return true;
+    
+    // 3. Word-based matching (excluding common prefixes/stopwords)
+    const stopwords = ["مركز", "قريه", "مدينه", "منطقه", "ناحيه", "ال"];
+    const wordsA = normA.split(/\s+/).filter(w => w.length > 2 && !stopwords.includes(w));
+    const wordsB = normB.split(/\s+/).filter(w => w.length > 2 && !stopwords.includes(w));
+    
+    if (wordsA.length > 0 && wordsB.length > 0) {
+      return wordsA.some(wA => wordsB.some(wB => wA === wB || wA.includes(wB) || wB.includes(wA)));
+    }
+    
+    // 4. Strip "ال" prefix and check match
+    const stripEl = (s: string) => s.startsWith("ال") ? s.substring(2) : s;
+    if (stripEl(normA) === stripEl(normB)) return true;
+    
+    return false;
+  };
+
+  // Initialize and seed default technicians and active areas
+  const seedInitialData = (force = false) => {
+    const currentSavedTechs = localStorage.getItem("tf_technicians");
+    const parsedTechs = currentSavedTechs ? JSON.parse(currentSavedTechs) : [];
+    
+    if (force || parsedTechs.length === 0) {
+      // Apply default techs
+      const formattedTechs = DEFAULT_TECHNICIANS.map(t => ({
+        ...t,
+        phone: formatEgyptPhone(t.phone)
+      }));
+      setTechnicians(formattedTechs);
+      localStorage.setItem("tf_technicians", JSON.stringify(formattedTechs));
+    }
+
+    // Activate default areas in Giza (الحوامدية، البدرشين، منيل شيحة، أم خنان، إلخ)
+    const activeTargetCities = ["الحوامدية", "البدرشين", "منيل شيحة", "أم خنان", "منى الأمير", "أبو صير", "سقارة", "المريوطية", "طموة"];
+    const currentSavedAreas = localStorage.getItem("tf_cov_areas");
+    let areasList = currentSavedAreas ? JSON.parse(currentSavedAreas) : [...DEFAULT_COV_AREAS];
+    
+    if (areasList.length === 0) {
+      areasList = [...DEFAULT_COV_AREAS];
+    }
+
+    const updatedAreas = areasList.map((area: any) => {
+      if (activeTargetCities.includes(area.name.trim())) {
+        return { ...area, active: true };
+      }
+      return area;
+    });
+
+    setCovAreas(updatedAreas);
+    localStorage.setItem("tf_cov_areas", JSON.stringify(updatedAreas));
+    localStorage.setItem("tf_db_version", "3.0");
+  };
+
+  // Auto load/seed on mount (equivalent to window.onload logic)
+  useEffect(() => {
+    const dbVersion = localStorage.getItem("tf_db_version");
+    if (dbVersion !== "3.0") {
+      seedInitialData(true);
+    } else {
+      const isTechsEmpty = !localStorage.getItem("tf_technicians") || JSON.parse(localStorage.getItem("tf_technicians") || "[]").length === 0;
+      const isAreasEmpty = !localStorage.getItem("tf_cov_areas") || JSON.parse(localStorage.getItem("tf_cov_areas") || "[]").length === 0;
+      
+      if (isTechsEmpty || isAreasEmpty) {
+        seedInitialData(false);
+      }
+    }
+  }, []);
 
   // New part inputs for admin
   const [newPartName, setNewPartName] = useState("");
@@ -147,6 +672,25 @@ export default function App() {
   const [checkCity, setCheckCity] = useState("");
   const [checkAddr, setCheckAddr] = useState("");
   const [isCheckingOut, setIsCheckingOut] = useState(false);
+
+  // Automatically select the first active coverage area initially for all forms
+  useEffect(() => {
+    const activeList = covAreas.filter(a => a.active);
+    if (activeList.length > 0) {
+      if (!mForm.city) {
+        setMForm(f => ({ ...f, city: activeList[0].name }));
+      }
+      if (!tiForm.city) {
+        setTiForm(f => ({ ...f, city: activeList[0].name }));
+      }
+      if (!checkCity) {
+        setCheckCity(activeList[0].name);
+      }
+      if (!orderClientCity) {
+        setOrderClientCity(activeList[0].name);
+      }
+    }
+  }, [covAreas]);
 
   // Synchronizers
   const savePartsToStorage = (updatedParts: Part[]) => {
@@ -224,7 +768,7 @@ export default function App() {
 
   // Checkout with Fallback logic
   const handleCheckout = () => {
-    if (!checkName || !checkPhone || !checkCity || !checkAddr) {
+    if (!checkName || !checkPhone || !checkAddr) {
       alert("الرجاء إدخال جميع بيانات التوصيل لإكمال الطلب");
       return;
     }
@@ -239,7 +783,7 @@ export default function App() {
 ━━━━━━━━━━━━━━━━━━
 👤 *العميل:* ${checkName}
 📞 *الهاتف:* ${checkPhone}
-📍 *المنطقة:* ${checkCity}
+📍 *المنطقة/المدينة:* ${checkCity || "لم يتم تحديدها"}
 🏠 *العنوان:* ${checkAddr}
 ━━━━━━━━━━━━━━━━━━
 📦 *القطع المطلوبة:*
@@ -255,6 +799,7 @@ ${orderItemsList}
       order_ref: ref,
       client_name: checkName,
       client_phone: checkPhone,
+      client_gov: checkGov,
       client_city: checkCity,
       client_address: checkAddr,
       items: cart.map(i => `${i.name} (عدد ${i.qty})`).join(" , "),
@@ -262,27 +807,35 @@ ${orderItemsList}
       timestamp: formattedNow()
     };
 
+    // Unified General Manager routing
+    const targetPhone = "201117735952";
+    const waUrl = `https://wa.me/${targetPhone}?text=${encodeURIComponent(orderMsg)}`;
+
     fetch("https://formspree.io/f/xvgowoen", { 
       method: "POST",
       headers: { "Content-Type": "application/json", "Accept": "application/json" },
       body: JSON.stringify(payload)
     })
-    .then(() => {
-      // Success modal trigger
-      setSuccessOrderRef(ref);
-      setIsSuccessModalOpen(true);
-      setCart([]);
-      setIsCartOpen(false);
-    })
-    .catch(() => {
-      // Redirection backup as a secure alternative
-      openWhatsApp(orderMsg);
-      setSuccessOrderRef(ref);
-      setIsSuccessModalOpen(true);
-      setCart([]);
-      setIsCartOpen(false);
-    })
     .finally(() => {
+      // Regardless of Formspree outcome, open WhatsApp and show confirmation
+      window.open(waUrl, "_blank", "noreferrer");
+      setSuccessOrderRef(ref);
+      setIsSuccessModalOpen(true);
+
+      // Save client transaction record to customers database
+      saveCustomerRecord({
+        name: checkName,
+        phone: checkPhone,
+        gov: checkGov,
+        city: checkCity,
+        address: checkAddr,
+        serviceType: "شراء قطع غيار",
+        details: cart.map(i => `${i.name} (${i.qty} قطع)`).join("، "),
+        timestamp: formattedNow()
+      });
+
+      setCart([]);
+      setIsCartOpen(false);
       setIsCheckingOut(false);
     });
   };
@@ -292,17 +845,60 @@ ${orderItemsList}
     if (mStep === 0) return !!mForm.deviceType;
     if (mStep === 1) return !!mForm.serviceType;
     if (mStep === 2) return !!(mForm.brand && (mForm.problem || mForm.customProblem));
-    if (mStep === 3) return !!(mForm.name && mForm.phone && mForm.address && mForm.city);
+    if (mStep === 3) return !!(mForm.name && mForm.phone && mForm.address);
     return false;
   };
 
   const handleMaintenanceSubmit = () => {
     const formattedProblem = mForm.problem || mForm.customProblem;
-    const maintenanceMsg = `🛠️ *طلب صيانة جديد - تك فيكس* 🛠️
+    const clientCity = (mForm.city || "").trim();
+    const clientDevice = (mForm.deviceType || "").trim(); // "بوتجاز" or "سخان غاز"
+    
+    const normalizedClientCity = normalizeArabic(clientCity);
+    const normalizedClientDevice = normalizeArabic(clientDevice);
+
+    // Find matching technician based on normalized multi-city and specialty coverage
+    const matchedTech = technicians.find(tech => {
+      // 1. Geography match:
+      let coversGeographically = false;
+      const cities = Array.isArray(tech.cities) ? tech.cities : (tech.city ? [tech.city] : []);
+      if (cities.length > 0) {
+        coversGeographically = cities.some(c => isCityMatch(c, clientCity));
+      }
+
+      // 2. Specialty match:
+      let coversSpecialty = false;
+      const specialties = Array.isArray(tech.specialties) ? tech.specialties : [];
+      if (specialties.length === 0) {
+        coversSpecialty = true; // covers everything if empty
+      } else {
+        coversSpecialty = specialties.some(s => {
+          const normS = normalizeArabic(s);
+          if (normS === normalizedClientDevice) return true;
+          if (normS.includes(normalizedClientDevice) || normalizedClientDevice.includes(normS)) return true;
+          // Special handlers for "سخان" vs "سخان غاز" & "بوتاجاز" vs "بوتجاز"
+          if (normS.includes("سخان") && normalizedClientDevice.includes("سخان")) return true;
+          if (normS.includes("بوتجاز") && normalizedClientDevice.includes("بوتجاز")) return true;
+          if (normS.includes("بوتاجاز") && normalizedClientDevice.includes("بوتجاز")) return true;
+          return false;
+        });
+      }
+
+      return coversGeographically && coversSpecialty;
+    });
+
+    setAssignedTech(matchedTech || null);
+
+    // If no technician found, use backup number 201117735952 as main coordinator
+    const fallbackPhone = "201117735952";
+    const assignedPhone = matchedTech ? formatEgyptPhone(matchedTech.phone) : formatEgyptPhone(waNumber || fallbackPhone);
+    const techName = matchedTech ? matchedTech.name : "الإدارة العامة ومندوب التنسيق";
+
+    const maintenanceMsg = `🛠️ *طلب صيانة جديدة - تك فيكس كود الأوردر* 🛠️
 ━━━━━━━━━━━━━━━━━━
 👤 *العميل:* ${mForm.name}
 📞 *الهاتف:* ${mForm.phone}
-📍 *المنطقة:* ${mForm.city}
+📍 *المنطقة/المدينة:* ${mForm.city || "لم يتم تحديدها"} [${mFormGov}]
 🏠 *العنوان:* ${mForm.address}
 ━━━━━━━━━━━━━━━━━━
 ⚙️ *نوع الجهاز:* ${mForm.deviceType}
@@ -310,9 +906,53 @@ ${orderItemsList}
 💼 *نوع الخدمة:* ${mForm.serviceType}
 📝 *المشكلة للتصليح:* ${formattedProblem}
 ━━━━━━━━━━━━━━━━━━
+👨‍🔧 *الفني المخصص:* ${techName}
+📞 *رقم هاتف الفني:* ${matchedTech ? matchedTech.phone : "تحت المتابعة والتوزيع الإداري العام [201117735952]"}
+━━━━━━━━━━━━━━━━━━
 ⏰ *وقت الإرسال:* ${formattedNow()}`;
 
-    openWhatsApp(maintenanceMsg);
+    // WhatsApp Direct Link with fully formatted message
+    const waUrl = `https://wa.me/${assignedPhone}?text=${encodeURIComponent(maintenanceMsg)}`;
+    
+    // Attempt to open in new window
+    const newWindow = window.open(waUrl, "_blank", "noreferrer");
+    
+    // Fallback if popup blocked
+    if (!newWindow) {
+      console.warn("WhatsApp popup blocked, falling back to window.location");
+      window.location.href = waUrl;
+    }
+
+    // Save record to customRequestsLog in LocalStorage
+    const newRequestLog = {
+      id: "req-" + Date.now() + "-" + Math.floor(Math.random() * 1000),
+      customerName: mForm.name,
+      phone: formatEgyptPhone(mForm.phone),
+      city: mForm.city,
+      address: mForm.address,
+      deviceType: mForm.deviceType,
+      brand: mForm.brand,
+      problem: formattedProblem,
+      techName: techName,
+      techPhone: matchedTech ? matchedTech.phone : "201117735952",
+      timestamp: formattedNow()
+    };
+    
+    const updatedLog = [newRequestLog, ...customRequestsLog];
+    saveCustomRequestsLog(updatedLog);
+
+    // Save record to persistent customer database (CRM system) so it shows in admin instantly
+    saveCustomerRecord({
+      name: mForm.name,
+      phone: mForm.phone,
+      gov: mFormGov,
+      city: mForm.city,
+      address: mForm.address,
+      serviceType: "طلب صيانة",
+      details: `${mForm.serviceType} لجهاز ${mForm.deviceType} (${mForm.brand}) - المشكلة: ${formattedProblem} [الفني المخصص: ${techName}]`,
+      timestamp: formattedNow()
+    });
+
     setMStep(4); // Move to final step 
   };
 
@@ -324,7 +964,7 @@ ${orderItemsList}
 ━━━━━━━━━━━━━━━━━━
 👤 *العميل:* ${tiForm.name}
 📞 *الهاتف:* ${tiForm.phone}
-📍 *المنطقة:* ${tiForm.city}
+📍 *المنطقة/المدينة:* ${tiForm.city || "لم يتم تحديدها"}
 ━━━━━━━━━━━━━━━━━━
 📦 *الجهاز:* ${tiForm.deviceType}
 🏷️ *الماركة:* ${tiForm.brand}
@@ -335,7 +975,31 @@ ${orderItemsList}
 ⏰ *وقت الإرسال:* ${formattedNow()}
 💡 *ملاحظة:* يرجى تزويدنا بصور للجهاز بمجرد إرسال الرسالة لتقييم أفضل.`;
 
-    openWhatsApp(tradeMsg);
+    // Unified General Manager routing
+    const targetPhone = "201117735952";
+    const waUrl = `https://wa.me/${targetPhone}?text=${encodeURIComponent(tradeMsg)}`;
+    
+    // Attempt to open in new window
+    const newWindow = window.open(waUrl, "_blank", "noreferrer");
+    
+    // Fallback if popup blocked
+    if (!newWindow) {
+      console.warn("WhatsApp popup blocked, falling back to window.location");
+      window.location.href = waUrl;
+    }
+
+    // Save client record to customer database
+    saveCustomerRecord({
+      name: tiForm.name,
+      phone: tiForm.phone,
+      gov: tiFormGov,
+      city: tiForm.city,
+      address: "مرفقة بالملاحظات",
+      serviceType: isSell ? "بيع وتجديد أجهزة" : "تجديد",
+      details: `${isSell ? "بيع" : "تجديد"} ${tiForm.deviceType} - ماركة: ${tiForm.brand} (عمر: ${tiForm.age} - حالة: ${tiForm.condition})`,
+      timestamp: formattedNow()
+    });
+
     setIsTiSuccess(true);
   };
 
@@ -385,12 +1049,20 @@ ${orderItemsList}
 
   // Admin operations on catalog
   const handleDeletePart = (id: number) => {
-    if (window.confirm("هل أنت متأكد من رغبتك بحذف قطعة الغيار هذه من القائمة؟")) {
-      const updated = parts.filter(p => p.id !== id);
-      savePartsToStorage(updated);
-      setCart(curr => curr.filter(item => item.id !== id));
-      triggerToast("تم حذف قطعة الغيار بنجاح");
-    }
+    const partToDelete = parts.find(p => p.id === id);
+    const partName = partToDelete ? partToDelete.name : "هذه القطعة";
+    setCustomConfirm({
+      show: true,
+      title: "حذف قطعة غيار",
+      message: `هل أنت متأكد من رغبتك بحذف قطعة الغيار (${partName}) نهائياً من القائمة والمخزن؟`,
+      onConfirm: () => {
+        const updated = parts.filter(p => p.id !== id);
+        savePartsToStorage(updated);
+        setCart(curr => curr.filter(item => item.id !== id));
+        triggerToast("تم حذف قطعة الغيار بنجاح 🗑️");
+        setCustomConfirm(null);
+      }
+    });
   };
 
   const handleTogglePartAvailability = (id: number) => {
@@ -499,6 +1171,17 @@ ${orderItemsList}
               بيع وتجديد الأجهزة
             </button>
             <button 
+              onClick={() => setActiveTab("appliances")}
+              className={`px-4 py-2.5 text-sm font-black tracking-wider uppercase transition-all flex items-center gap-1 ${
+                activeTab === "appliances" 
+                  ? "text-brand-orange border-b-2 border-brand-orange" 
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              <ShoppingBag className="w-3.5 h-3.5" />
+              <span>الأجهزة المتاحة للبيع</span>
+            </button>
+            <button 
               onClick={() => setActiveTab("admin")}
               className={`px-4 py-2.5 text-sm font-black tracking-wider uppercase transition-all flex items-center gap-1 ${
                 activeTab === "admin" 
@@ -566,6 +1249,13 @@ ${orderItemsList}
           >
             <span>💰</span>
             <span>بيع وتجديد</span>
+          </button>
+          <button 
+            onClick={() => setActiveTab("appliances")}
+            className={`flex flex-col items-center gap-1 text-[11px] font-black tracking-wider ${activeTab === "appliances" ? "text-brand-orange" : "text-slate-400"}`}
+          >
+            <span>🛍️</span>
+            <span>شراء أجهزة</span>
           </button>
           <button 
             onClick={() => setActiveTab("admin")}
@@ -683,13 +1373,21 @@ ${orderItemsList}
 
                 {/* Local Area SEO Tag Clouds */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  {COV_AREAS.map((area, idx) => (
+                  {covAreas.map((area, idx) => (
                     <div 
                       key={idx} 
-                      className="bg-[#1b1b1f] px-4 py-3 border border-white/5 flex items-center justify-between hover:border-brand-orange/30 transition-all group pointer-events-none"
+                      className={`bg-[#1b1b1f] px-4 py-3 border flex items-center justify-between hover:border-brand-orange/30 transition-all group pointer-events-none ${
+                        area.active ? "border-white/5 opacity-100" : "border-red-500/10 opacity-60"
+                      }`}
                     >
-                      <span className="text-sm font-black text-slate-200 group-hover:text-white">{area}</span>
-                      <span className="text-brand-orange font-mono text-xs">ONLINE</span>
+                      <span className={`text-sm font-black group-hover:text-white ${
+                        area.active ? "text-slate-200" : "text-slate-500 line-through"
+                      }`}>{area.name}</span>
+                      {area.active ? (
+                        <span className="text-emerald-400 font-mono text-[10px] bg-emerald-500/5 px-1.5 py-0.5 border border-emerald-500/10 font-bold">ONLINE</span>
+                      ) : (
+                        <span className="text-red-400 font-mono text-[10px] bg-red-500/5 px-1.5 py-0.5 border border-red-500/10 font-bold">PAUSED</span>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -913,41 +1611,59 @@ ${orderItemsList}
                     <h3 className="text-lg font-black text-center text-white mb-2">تفاصيل العطل والماركة</h3>
                     
                     {/* Brand dropdown */}
-                    <div className="space-y-1.5">
-                      <label className="text-xs text-slate-400 font-bold block">ماركة المصنع للجهاز <span className="text-brand-orange">*</span></label>
-                      <select 
-                        value={mForm.brand}
-                        onChange={(e) => setMForm(f => ({ ...f, brand: e.target.value }))}
-                        className="w-full p-3 rounded-none bg-brand-input border border-white/15 text-white text-sm outline-none focus:border-brand-orange"
-                      >
-                        <option value="" disabled>اختر الماركة المصنعة لطلبك</option>
-                        {(BRANDS_DATA[mForm.deviceType as keyof typeof BRANDS_DATA] || []).map((br, bIdx) => (
-                          <option key={bIdx} value={br}>{br}</option>
-                        ))}
-                      </select>
-                    </div>
+                    {(() => {
+                      const deviceTypeKey = (mForm.deviceType === "سخان غاز" || mForm.deviceType === "سخان") ? "سخان غاز" : "بوتجاز";
+                      const availableBrands = BRANDS_DATA[deviceTypeKey] || [];
+                      const isPredefined = availableBrands.includes(mForm.brand);
+                      return (
+                        <div className="space-y-3 font-sans">
+                          <div className="space-y-1.5">
+                            <label className="text-xs text-slate-400 font-bold block">ماركة المصنع للجهاز <span className="text-brand-orange">*</span></label>
+                            <select 
+                              value={isPredefined ? mForm.brand : (mForm.brand ? "أخرى" : "")}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === "أخرى") {
+                                  setMForm(f => ({ ...f, brand: "" }));
+                                } else {
+                                  setMForm(f => ({ ...f, brand: val }));
+                                }
+                              }}
+                              className="w-full p-3 rounded-none bg-brand-input border border-white/15 text-white text-sm outline-none focus:border-brand-orange font-bold text-right"
+                            >
+                              <option value="" disabled>-- اختر ماركة جهازك من القائمة --</option>
+                              {availableBrands.map((br, bIdx) => (
+                                <option key={bIdx} value={br}>{br}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {(!mForm.brand || !isPredefined) && (
+                            <div className="space-y-1.5 animate-fadeIn">
+                              <label className="text-xs text-[#f97316] font-bold block">يرجى كتابة ماركة المصنع يدوياً <span className="text-brand-orange">*</span></label>
+                              <input 
+                                type="text" 
+                                placeholder="مثال: يونيفرسال، كريازي، فريش، زانوسي... *"
+                                value={mForm.brand}
+                                onChange={(e) => setMForm(f => ({ ...f, brand: e.target.value }))}
+                                className="w-full p-3 rounded-none bg-[#141417] border border-brand-orange/70 text-white text-sm outline-none focus:border-brand-orange font-bold placeholder-slate-500"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     {/* Common Problem chip selections */}
                     <div className="space-y-2">
                        <label className="text-xs text-slate-400 font-bold block">العرض أو المشكلة الرئيسية <span className="text-brand-orange">*</span></label>
-                      <div className="flex flex-wrap gap-2">
-                        {(PROBLEMS_DATA[mForm.deviceType as keyof typeof PROBLEMS_DATA] || []).map((prob, pIdx) => {
-                          const isSel = mForm.problem === prob;
-                          return (
-                            <button
-                              key={pIdx}
-                              onClick={() => setMForm(f => ({ ...f, problem: prob, customProblem: "" }))}
-                              className={`px-3.5 py-1.5 rounded-none text-xs font-semibold transition-all border cursor-pointer ${
-                                isSel
-                                  ? "bg-brand-orange text-black border-brand-orange font-black"
-                                  : "bg-[#1b1b1f] border-white/10 text-slate-300 hover:border-white/20"
-                              }`}
-                            >
-                              {prob}
-                            </button>
-                          );
-                        })}
-                      </div>
+                       <input 
+                        type="text"
+                        placeholder="اكتب العرض أو المشكلة *"
+                        value={mForm.problem}
+                        onChange={(e) => setMForm(f => ({ ...f, problem: e.target.value }))}
+                        className="w-full p-3 rounded-none bg-brand-input border border-white/15 text-white text-sm outline-none focus:border-brand-orange"
+                      />
                     </div>
 
                     {/* Custom text problem description */}
@@ -955,7 +1671,7 @@ ${orderItemsList}
                        <label className="text-xs text-slate-400 font-bold block">أو اكتب وصفاً وملاحظات مخصصة تود إطلاع الفني عليها</label>
                       <textarea 
                         value={mForm.customProblem}
-                        onChange={(e) => setMForm(f => ({ ...f, customProblem: e.target.value, problem: e.target.value ? "" : f.problem }))}
+                        onChange={(e) => setMForm(f => ({ ...f, customProblem: e.target.value }))}
                         rows={3}
                         placeholder="اكتب تفاصيل إضافية مثل: هناك تسريب في المحبس الثاني، أو سخان الغاز لا يستشعر ضغط المياه..."
                         className="w-full p-3.5 rounded-none bg-brand-input border border-white/15 text-white text-xs outline-none focus:border-brand-orange resize-none"
@@ -992,17 +1708,17 @@ ${orderItemsList}
                       />
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-1.5">
-                        <label className="text-xs text-slate-400 font-bold block">الموقع / المنطقة المحددة <span className="text-brand-orange">*</span></label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <label className="text-xs text-slate-400 font-bold block font-sans">المنطقة السكنية / المدينة <span className="text-brand-orange">*</span></label>
                         <select 
                           value={mForm.city}
                           onChange={(e) => setMForm(f => ({ ...f, city: e.target.value }))}
-                          className="w-full p-3 rounded-none bg-brand-input border border-white/15 text-white text-sm outline-none focus:border-brand-orange"
+                          className="w-full p-3 rounded-none bg-brand-input border border-white/15 text-white text-sm outline-none focus:border-brand-orange font-bold font-sans"
                         >
                           <option value="" disabled>اختر منطقتك السكنية</option>
-                          {COV_AREAS.map((city, cIdx) => (
-                            <option key={cIdx} value={city}>{city}</option>
+                          {covAreas.filter(a => a.active).map((area, idx) => (
+                            <option key={idx} value={area.name}>{area.name}</option>
                           ))}
                         </select>
                       </div>
@@ -1023,22 +1739,82 @@ ${orderItemsList}
 
                 {/* STEP 4: SUCCESS COMPLETED RESPONSE */}
                 {mStep === 4 && (
-                  <div className="text-center py-8 space-y-6">
+                  <div className="text-center py-8 space-y-6 animate-fadeIn font-sans text-right" dir="rtl">
                     <div className="w-16 h-16 rounded-none bg-emerald-500/10 border-2 border-emerald-500 flex items-center justify-center mx-auto text-emerald-500 text-3xl font-black">
                       ✓
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-2 text-center">
                       <h4 className="text-emerald-400 text-2xl font-black">وصلنا طلب الصيانة الفورية!</h4>
-                      <p className="text-slate-400 text-sm leading-relaxed max-w-sm mx-auto">
-                        تم تجميع طلبك وإرساله إلى الفني المسؤول عن الصيانة. سيتم مراجعة طلبك والتواصل معك عبر الهاتف أو الواتس آب في غضون ربع ساعة فقط!
+                      <p className="text-slate-400 text-xs leading-relaxed max-w-sm mx-auto text-center">
+                        تم تجميع طلبك وتحليله جغرافياً وفنياً وتوجيهه بنجاح إلى الفني المتخصص المسؤول عن تغطية منطقتك وجهازك.
                       </p>
                     </div>
-                    <button 
-                      onClick={handleResetMaintenance}
-                      className="px-6 py-3 rounded-none bg-[#111114] border border-white/10 hover:bg-[#1b1b1f] text-white font-bold text-sm transition-all shadow-md cursor-pointer"
-                    >
-                      موافق، شكراً! 👍
-                    </button>
+
+                    {/* Assigned Technician Card */}
+                    <div className="bg-[#111114] p-5 rounded-none border border-white/10 max-w-md mx-auto space-y-4">
+                      <div className="flex items-center justify-between border-b border-white/5 pb-2.5">
+                        <span className="text-xs text-slate-400 font-extrabold flex items-center gap-1">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block" />
+                          الفني المعين لتنفيذ الأوردر:
+                        </span>
+                        <span className="text-[10px] bg-brand-orange/10 text-brand-orange border border-brand-orange/25 font-bold px-2 py-0.5">
+                          توجيه تلقائي ذكي ⚡
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-3.5">
+                        <div className="w-12 h-12 bg-[#0c0c0e] border border-white/10 flex items-center justify-center text-xl font-bold text-slate-300">
+                          👨‍🔧
+                        </div>
+                        <div className="space-y-0.5 text-right">
+                          <h5 className="text-white font-black text-sm">{assignedTech ? assignedTech.name : "الإدارة العامة ومندوب التنسيق"}</h5>
+                          <p className="text-slate-400 text-[10px] font-bold">
+                            {assignedTech 
+                              ? `التخصص: صيانة ${Array.isArray(assignedTech.specialties) ? assignedTech.specialties.join(" و ") : "الأجهزة"}` 
+                              : "إدارة تشغيل وتوجيه الصيانة المركزية"}
+                          </p>
+                          <p className="text-slate-500 text-[10px] font-bold">
+                            تغطية جغرافية نشطة: {assignedTech 
+                              ? (Array.isArray(assignedTech.cities) ? assignedTech.cities.join("، ") : assignedTech.city) 
+                              : "كامل أنحاء جمهورية مصر العربية"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 flex flex-col sm:flex-row gap-2.5">
+                        <a 
+                          href={assignedTech 
+                            ? `https://wa.me/${formatEgyptPhone(assignedTech.phone)}?text=${encodeURIComponent(`مرحباً ${assignedTech.name}، أنا العميل ${mForm.name} من منطقة ${mForm.city}. تم توجيه طلبي إليك بخصوص صيانة ${mForm.deviceType} (${mForm.brand}) من مركز تك فيكس.`)}`
+                            : `https://wa.me/${formatEgyptPhone(waNumber)}?text=${encodeURIComponent(`مرحباً تك فيكس، أريد المتابعة مع المسؤول بخصوص طلب الصيانة الذي قمت بإرساله لمنطقة ${mForm.city}.`)}`
+                          }
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex-grow py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs text-center border border-emerald-500/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer decoration-none"
+                        >
+                          💬 تحدث مباشرة مع الفني المعين
+                        </a>
+
+                        {/* GM Notification Option */}
+                        <a 
+                          href={`https://wa.me/${formatEgyptPhone(waNumber)}?text=${encodeURIComponent(`🚨 *إشعار تعيين أوردر تلقائي لمنطقة ${mForm.city}* 🚨\n\n- تم استقبال طلب صيانة من العميل (${mForm.name}) في محافظة ${mFormGov} - ${mForm.city}.\n- نوع الجهاز: ${mForm.deviceType} (${mForm.brand}).\n- الفني المخصص: ${assignedTech ? assignedTech.name : "الإدارة العامة"}.\n- هاتف الفني: ${assignedTech ? assignedTech.phone : "تحت المتابعة"}.`)}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="py-2.5 px-3.5 bg-[#0a0a0c] hover:bg-[#111114] text-slate-300 font-bold text-xs text-center border border-white/10 transition-all flex items-center justify-center gap-1 cursor-pointer decoration-none"
+                          title="إرسال إشعار تأكيد التوجيه إلى المدير العام للمتابعة الإدارية"
+                        >
+                          👤 توجيه للمدير العام ⚙️
+                        </a>
+                      </div>
+                    </div>
+
+                    <div className="pt-4 text-center">
+                      <button 
+                        onClick={handleResetMaintenance}
+                        className="px-6 py-2.5 rounded-none bg-brand-orange hover:bg-brand-orange-dark text-black font-extrabold text-xs transition-all shadow-md cursor-pointer inline-block"
+                      >
+                        العودة للرئيسية وموافق 👍
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -1291,35 +2067,62 @@ ${orderItemsList}
                     </div>
 
                     {/* Appliance & Brand info */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      
-                      <div className="space-y-1.5">
-                        <label className="text-xs text-slate-400 font-bold block">نوع الجهاز المتوفر <span className="text-brand-orange">*</span></label>
-                        <select 
-                          value={tiForm.deviceType}
-                          onChange={(e) => setTiForm(f => ({ ...f, deviceType: e.target.value, brand: "" }))}
-                          className="w-full p-3 rounded-none bg-brand-input border border-white/15 text-white text-sm outline-none focus:border-brand-orange"
-                        >
-                          <option value="بوتجاز">بوتجاز</option>
-                          <option value="سخان غاز">سخان غاز</option>
-                        </select>
-                      </div>
+                    {(() => {
+                      const deviceTypeKey = (tiForm.deviceType === "سخان غاز" || tiForm.deviceType === "سخان") ? "سخان غاز" : "بوتجاز";
+                      const availableBrands = BRANDS_DATA[deviceTypeKey] || [];
+                      const isPredefined = availableBrands.includes(tiForm.brand);
+                      return (
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-sans">
+                            <div className="space-y-1.5">
+                              <label className="text-xs text-slate-400 font-bold block">نوع الجهاز المتوفر <span className="text-brand-orange">*</span></label>
+                              <select 
+                                value={tiForm.deviceType}
+                                onChange={(e) => setTiForm(f => ({ ...f, deviceType: e.target.value, brand: "" }))}
+                                className="w-full p-3 rounded-none bg-brand-input border border-white/15 text-white text-sm outline-none focus:border-brand-orange font-bold text-right"
+                              >
+                                <option value="بوتجاز">بوتجاز</option>
+                                <option value="سخان غاز">سخان غاز</option>
+                              </select>
+                            </div>
 
-                      <div className="space-y-1.5">
-                        <label className="text-xs text-slate-400 font-bold block">الماركة المصنعة <span className="text-brand-orange">*</span></label>
-                        <select 
-                          value={tiForm.brand}
-                          onChange={(e) => setTiForm(f => ({ ...f, brand: e.target.value }))}
-                          className="w-full p-3 rounded-none bg-brand-input border border-white/15 text-white text-sm outline-none focus:border-brand-orange"
-                        >
-                          <option value="" disabled>اختر ماركة المصنع</option>
-                          {(BRANDS_DATA[tiForm.deviceType as keyof typeof BRANDS_DATA] || []).map((br, bIdx) => (
-                            <option key={bIdx} value={br}>{br}</option>
-                          ))}
-                        </select>
-                      </div>
+                            <div className="space-y-1.5">
+                              <label className="text-xs text-slate-400 font-bold block">الماركة المصنعة <span className="text-brand-orange">*</span></label>
+                              <select 
+                                value={isPredefined ? tiForm.brand : (tiForm.brand ? "أخرى" : "")}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  if (val === "أخرى") {
+                                    setTiForm(f => ({ ...f, brand: "" }));
+                                  } else {
+                                    setTiForm(f => ({ ...f, brand: val }));
+                                  }
+                                }}
+                                className="w-full p-3 rounded-none bg-brand-input border border-white/15 text-white text-sm outline-none focus:border-brand-orange font-bold text-right"
+                              >
+                                <option value="" disabled>-- اختر ماركة جهازك من القائمة --</option>
+                                {availableBrands.map((br, bIdx) => (
+                                  <option key={bIdx} value={br}>{br}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
 
-                    </div>
+                          {(!tiForm.brand || !isPredefined) && (
+                            <div className="space-y-1.5 animate-fadeIn font-sans">
+                              <label className="text-xs text-[#f97316] font-bold block">يرجى كتابة الماركة المصنعة يدوياً <span className="text-brand-orange">*</span></label>
+                              <input 
+                                type="text" 
+                                placeholder="مثال: يونيفرسال، كريازي، فريش، أوليمبك... *"
+                                value={tiForm.brand}
+                                onChange={(e) => setTiForm(f => ({ ...f, brand: e.target.value }))}
+                                className="w-full p-3 rounded-none bg-[#141417] border border-brand-orange/70 text-white text-sm outline-none focus:border-brand-orange font-bold placeholder-slate-500"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     {/* Age and condition */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1371,7 +2174,7 @@ ${orderItemsList}
                         />
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         
                         <div className="space-y-1.5">
                           <label className="text-xs text-slate-400 font-bold block">رقم هاتفك الفعال للإتصال <span className="text-brand-orange">*</span></label>
@@ -1385,16 +2188,16 @@ ${orderItemsList}
                           />
                         </div>
 
-                        <div className="space-y-1.5">
-                          <label className="text-xs text-slate-400 font-bold block">منطقتك السكنية بالجيزة <span className="text-brand-orange">*</span></label>
+                        <div className="space-y-1.5 col-span-2">
+                          <label className="text-xs text-slate-400 font-bold block">المنطقة السكنية / المدينة <span className="text-brand-orange">*</span></label>
                           <select 
                             value={tiForm.city}
                             onChange={(e) => setTiForm(f => ({ ...f, city: e.target.value }))}
-                            className="w-full p-3 rounded-none bg-brand-input border border-white/15 text-white text-sm outline-none focus:border-brand-orange"
+                            className="w-full p-3 rounded-none bg-brand-input border border-white/15 text-white text-sm outline-none focus:border-brand-orange font-bold font-sans"
                           >
-                            <option value="" disabled>اختر موقع سكنك</option>
-                            {COV_AREAS.map((city, cIdx) => (
-                              <option key={cIdx} value={city}>{city}</option>
+                            <option value="" disabled>اختر منطقتك السكنية</option>
+                            {covAreas.filter(a => a.active).map((area, idx) => (
+                              <option key={idx} value={area.name}>{area.name}</option>
                             ))}
                           </select>
                         </div>
@@ -1425,7 +2228,7 @@ ${orderItemsList}
                     {/* Submit Button */}
                     <button 
                       onClick={handleTradeInSubmit}
-                      disabled={!tiForm.requestType || !tiForm.brand || !tiForm.age || !tiForm.condition || !tiForm.name || !tiForm.phone || !tiForm.city}
+                      disabled={!tiForm.requestType || !tiForm.brand || !tiForm.age || !tiForm.condition || !tiForm.name || !tiForm.phone}
                       className="w-full py-4 rounded-none bg-brand-orange text-black disabled:bg-neutral-800 disabled:text-neutral-500 font-black text-sm select-none transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg"
                     >
                       <Phone className="w-4 h-4" />
@@ -1457,7 +2260,236 @@ ${orderItemsList}
             </motion.div>
           )}
 
-          {activeTab === "admin" && (
+        {/* TAB 4.5: APPLIANCES SALE FOR CLIENTS */}
+          {activeTab === "appliances" && (
+            <motion.div 
+              key="appliances-sec"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              className="space-y-8"
+            >
+              <div className="text-center space-y-3 mb-8">
+                <span className="text-xs uppercase tracking-[0.3em] text-[#f97316] font-bold block">// غسالات، بوتاجازات وسخانات مستعملة ومعاد تصنيعها</span>
+                <h2 className="text-4xl font-black text-white tracking-tighter">🛍️ الأجهزة الرياضية والمنزلية لشركة "تك فيكس"</h2>
+                <p className="text-slate-400 text-sm max-w-xl mx-auto">أجهزة مضمونة 100% مجددة بالكامل على أيدي خبرائنا، مع ضمان حقيقي يصل إلى عام كامل بأسعار لا تقبل المنافسة</p>
+              </div>
+
+              {/* Grid Layout of Appliances */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-right">
+                {appliances.length === 0 ? (
+                  <div className="col-span-full text-center py-16 bg-[#111114] border border-white/5 space-y-3">
+                    <span className="text-4xl">📭</span>
+                    <h3 className="text-lg font-black text-white">لا توجد أجهزة معروضة للبيع حالياً</h3>
+                    <p className="text-slate-400 text-xs">ترقب مراجعة وتجهيز بعض الأجهزة الممتازة لتضاف قريباً لكتالوج المتجر</p>
+                  </div>
+                ) : (
+                  appliances.map((app) => (
+                    <div key={app.id} className="bg-[#111114] border border-white/10 overflow-hidden flex flex-col justify-between group hover:border-[#f97316]/50 transition-all">
+                      <div className="relative aspect-video w-full overflow-hidden bg-slate-900">
+                        {app.imageUrl ? (
+                          <img 
+                            src={app.imageUrl} 
+                            alt={app.brand} 
+                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-slate-700 bg-slate-950 font-black text-xs">
+                            لا تتوفر صورة للجهاز 📷
+                          </div>
+                        )}
+                        <span className="absolute top-3 left-3 px-2.5 py-1 text-[10px] font-black uppercase bg-[#f97316] text-[#000] tracking-wide">
+                          {app.deviceType}
+                        </span>
+                      </div>
+                      
+                      <div className="p-5 space-y-4 flex-grow flex flex-col justify-between text-right">
+                        <div className="space-y-2">
+                          <h3 className="text-lg font-black text-white line-clamp-1 group-hover:text-[#f97316] transition-colors">{app.brand}</h3>
+                          
+                          <div className="flex flex-wrap gap-1.5 text-xs text-slate-400">
+                            <span className="bg-white/5 px-2 py-0.5 border border-white/5">حالة: {app.condition}</span>
+                            <span className="bg-white/5 px-2 py-0.5 border border-white/5">الاستهلاك: {app.usageDuration}</span>
+                          </div>
+
+                          <p className="text-slate-400 text-xs leading-relaxed line-clamp-3 pt-2">{app.details}</p>
+                        </div>
+
+                        <div className="space-y-4 pt-4 border-t border-white/5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-slate-500 font-bold">السعر النهائي المعروض</span>
+                            <span className="text-xl font-black text-[#f97316]">{(app.price).toLocaleString()} ج.م</span>
+                          </div>
+
+                          <button
+                            onClick={() => {
+                              setSelectedApplianceForOrder(app);
+                              setOrderClientGov("الجيزة");
+                              setOrderClientCity("");
+                            }}
+                            className="w-full py-3 bg-[#f97316] hover:bg-[#d9530f] text-black font-black text-xs uppercase tracking-wider text-center cursor-pointer transition-all"
+                          >
+                            طلب شراء هذا الجهاز الآن 📞
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {/* Purchase Details Modal Popup */}
+              {selectedApplianceForOrder && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                  <div className="fixed inset-0 bg-black/80 cursor-pointer" onClick={() => setSelectedApplianceForOrder(null)} />
+                  
+                  <div className="relative w-full max-w-lg bg-[#111114] border border-white/10 p-6 md:p-8 text-right shadow-2xl z-10" dir="rtl">
+                    <button 
+                      onClick={() => setSelectedApplianceForOrder(null)}
+                      className="absolute top-4 left-4 text-slate-400 hover:text-white transition-colors text-lg cursor-pointer"
+                    >
+                      ✕
+                    </button>
+
+                    <span className="text-[10px] text-[#f97316] uppercase font-black tracking-widest">// تفعيل حجز وشراء أجهزة منزلية</span>
+                    <h3 className="text-2xl font-black text-white mt-1 mb-4">تملّك: {selectedApplianceForOrder.brand}</h3>
+
+                    <div className="bg-[#1b1b1f] p-4 border border-white/5 mb-5 space-y-2">
+                      <div className="flex justify-between text-xs text-slate-400">
+                        <span>نوع الجهاز المطلوب للتوصيل:</span>
+                        <span className="text-white font-bold">{selectedApplianceForOrder.deviceType}</span>
+                      </div>
+                      <div className="flex justify-between text-xs text-slate-400">
+                        <span>سعر البيع النهائي المتفق عليه:</span>
+                        <span className="text-[#f97316] font-black">{selectedApplianceForOrder.price.toLocaleString()} ج.م</span>
+                      </div>
+                    </div>
+
+                    <form onSubmit={(e) => {
+                      e.preventDefault();
+                      if (!orderClientName || !orderClientPhone || !orderClientAddress) {
+                        alert("الرجاء استكمال كافة البيانات لإتمام عملية الشراء المباشرة!");
+                        return;
+                      }
+
+                      const orderRefCode = "#APP" + Math.floor(10000 + Math.random() * 90000);
+                      const fullMsg = `🛍️ *طلب شراء جهاز منزلي - تك فيكس* 🛍️
+━━━━━━━━━━━━━━━━━━
+👤 *العميل:* ${orderClientName}
+📞 *الهاتف:* ${orderClientPhone}
+📍 *المحافظة:* ${orderClientGov}
+📍 *المنطقة:* ${orderClientCity || "لم يتم تحديدها"}
+🏠 *العنوان:* ${orderClientAddress}
+━━━━━━━━━━━━━━━━━━
+📦 *الجهاز المطلوب:* ${selectedApplianceForOrder.brand} (${selectedApplianceForOrder.deviceType})
+💎 *الحالة:* ${selectedApplianceForOrder.condition}
+⏳ *مدة الاستخدام:* ${selectedApplianceForOrder.usageDuration}
+💰 *السعر المقدر:* ${selectedApplianceForOrder.price.toLocaleString()} ج.م
+━━━━━━━━━━━━━━━━━━
+🔖 *رقم أوردر الحجز:* ${orderRefCode}
+⏰ *وقت المراسلة:* ${formattedNow()}`;
+
+                      // Unified general manager router (201117735952)
+                      const queryPhone = "201117735952";
+                      const waUrl = `https://wa.me/${queryPhone}?text=${encodeURIComponent(fullMsg)}`;
+                      
+                      // Attempt to open in new window
+                      const newWindow = window.open(waUrl, "_blank", "noreferrer");
+                      
+                      // Fallback if popup blocked
+                      if (!newWindow) {
+                        console.warn("WhatsApp popup blocked, falling back to window.location");
+                        window.location.href = waUrl;
+                      }
+
+                      // Store to customer database
+                      saveCustomerRecord({
+                        name: orderClientName,
+                        phone: orderClientPhone,
+                        gov: orderClientGov,
+                        city: orderClientCity,
+                        address: orderClientAddress,
+                        serviceType: "شراء جهاز منزلي",
+                        details: `شراء جهاز: ${selectedApplianceForOrder.brand} بسعر ${selectedApplianceForOrder.price.toLocaleString()} ج.م`,
+                        timestamp: formattedNow()
+                      });
+
+                      // Reset fields & success confirmation
+                      setOrderClientName("");
+                      setOrderClientPhone("");
+                      setOrderClientAddress("");
+                      setSelectedApplianceForOrder(null);
+                      triggerToast("تم تسجيل طلب الشراء بنجاح وبانتظار رد المدير بالواتساب!");
+                    }} className="space-y-4">
+                      
+                      <div className="space-y-1">
+                        <label className="text-xs text-slate-400 font-bold block">اسم المشتري بالكامل <span className="text-[#f97316]">*</span></label>
+                        <input 
+                          type="text"
+                          required
+                          value={orderClientName}
+                          onChange={(e) => setOrderClientName(e.target.value)}
+                          placeholder="مثال: يوسف ماهر الجيزاوي"
+                          className="w-full p-2.5 rounded-none bg-brand-input border border-white/10 text-white text-xs outline-none focus:border-brand-orange"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-xs text-slate-400 font-bold block">رقم هاتف الواتس اب للتواصل والمتابعة <span className="text-[#f97316]">*</span></label>
+                        <input 
+                          type="tel"
+                          required
+                          value={orderClientPhone}
+                          onChange={(e) => setOrderClientPhone(e.target.value)}
+                          placeholder="01xxxxxxxxx"
+                          className="w-full p-2.5 rounded-none bg-brand-input border border-white/10 text-white text-xs text-left outline-none focus:border-brand-orange"
+                          dir="ltr"
+                        />
+                      </div>
+
+                      <div className="col-span-2 space-y-1">
+                        <label className="text-xs text-slate-400 font-bold block">المنطقة السكنية / المدينة <span className="text-[#f97316]">*</span></label>
+                        <select 
+                          value={orderClientCity}
+                          onChange={(e) => setOrderClientCity(e.target.value)}
+                          className="w-full p-2.5 rounded-none bg-brand-input border border-white/10 text-white text-xs outline-none focus:border-brand-orange font-bold font-sans"
+                        >
+                          <option value="" disabled>اختر منطقتك السكنية</option>
+                          {covAreas.filter(a => a.active).map((area, idx) => (
+                            <option key={idx} value={area.name}>{area.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-xs text-slate-400 font-bold block">عنوان المنزل تفصيلياً (الشارع، البناية، الشقة) <span className="text-[#f97316]">*</span></label>
+                        <input 
+                          type="text"
+                          required
+                          value={orderClientAddress}
+                          onChange={(e) => setOrderClientAddress(e.target.value)}
+                          placeholder="مثال: شارع المحطة الرئيسي - عمارة الهدى، الطابق الرابع شقة ٣"
+                          className="w-full p-2.5 rounded-none bg-brand-input border border-white/10 text-white text-xs outline-none focus:border-[#f97316]"
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        className="w-full py-3.5 bg-[#f97316] hover:bg-[#d9530f] text-black font-black text-sm uppercase tracking-wider text-center cursor-pointer transition-all mt-4"
+                      >
+                        إرسال كود طلب الحجز والشراء الآن 📲
+                      </button>
+
+                    </form>
+                  </div>
+                </div>
+              )}
+
+            </motion.div>
+          )}
+
+        {activeTab === "admin" && (
             <motion.div 
               key="admin"
               initial={{ opacity: 0, y: 15 }}
@@ -1534,201 +2566,1973 @@ ${orderItemsList}
               ) : (
                 <div className="space-y-8">
                   
-                  {/* Config Box: WA Number */}
-                  <div className="bg-[#111114] p-5 rounded-none border border-white/10 space-y-3">
-                    <h4 className="text-white font-black text-sm">📱 تعيين رقم الواتس آب المسؤول لمسار الطلبات</h4>
-                    <div className="flex items-center gap-2 max-w-sm">
-                      <input 
-                        type="text"
-                        placeholder="201117735952"
-                        value={waNumber}
-                        onChange={(e) => saveWaToStorage(e.target.value)}
-                        className="flex-grow p-2.5 rounded-none bg-[#0a0a0c] border border-white/15 text-white text-xs outline-none focus:border-brand-orange text-left font-bold"
-                        dir="ltr"
-                      />
+                  {/* BRANDED INTERACTIVE DASHBOARD SUB-NAVBAR TABS */}
+                  <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-white/10 pb-4 gap-4">
+                    <div>
+                      <h3 className="text-lg font-black text-white flex items-center gap-2">// لوحة التحكم الإدارية المركزية</h3>
+                      <p className="text-slate-400 text-xs">تك فيكس مبيعات، صيانة، تفريغ وتوزيع المناطق التوزيعي بالأقسام</p>
+                    </div>
+                    {/* Switch buttons */}
+                    <div className="flex flex-wrap items-center bg-[#111114] p-1 border border-white/10 gap-1 rounded-none select-none">
                       <button 
-                        onClick={() => triggerToast("تم حفظ وتحديث رقم هاتف المسؤول بنجاح")}
-                        className="px-4 py-2.5 rounded-none bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1 shrink-0"
+                        onClick={() => setAdminSubTab("inventory")}
+                        className={`py-2 px-4 text-center font-extrabold text-[11px] tracking-tight transition-all rounded-none flex items-center gap-1.5 cursor-pointer ${
+                          adminSubTab === "inventory" 
+                            ? "bg-brand-orange text-black font-black" 
+                            : "text-slate-400 hover:text-white"
+                        }`}
                       >
-                        <Save className="w-4 h-4" />
-                        <span>حفظ الرقم</span>
+                        <Package className="w-3.5 h-3.5" />
+                        <span>المخزن الحالي ({parts.length})</span>
+                      </button>
+                      <button 
+                        onClick={() => setAdminSubTab("customers")}
+                        className={`py-2 px-4 text-center font-extrabold text-[11px] tracking-tight transition-all rounded-none flex items-center gap-1.5 cursor-pointer ${
+                          adminSubTab === "customers" 
+                            ? "bg-brand-orange text-black font-black" 
+                            : "text-slate-400 hover:text-white"
+                        }`}
+                      >
+                        <Users className="w-3.5 h-3.5" />
+                        <span>بيانات العملاء ({customers.length})</span>
+                      </button>
+                      <button 
+                        onClick={() => setAdminSubTab("technicians")}
+                        className={`py-2 px-4 text-center font-extrabold text-[11px] tracking-tight transition-all rounded-none flex items-center gap-1.5 cursor-pointer ${
+                          adminSubTab === "technicians" 
+                            ? "bg-brand-orange text-black font-black" 
+                            : "text-slate-400 hover:text-white"
+                        }`}
+                      >
+                        <Wrench className="w-3.5 h-3.5" />
+                        <span>إدارة الفنيين ({technicians.length})</span>
+                      </button>
+                      <button 
+                        onClick={() => setAdminSubTab("areas")}
+                        className={`py-2 px-4 text-center font-extrabold text-[11px] tracking-tight transition-all rounded-none flex items-center gap-1.5 cursor-pointer ${
+                          adminSubTab === "areas" 
+                            ? "bg-brand-orange text-black font-black" 
+                            : "text-slate-400 hover:text-white"
+                        }`}
+                      >
+                        <MapPin className="w-3.5 h-3.5" />
+                        <span>إدارة المناطق ({covAreas.length})</span>
+                      </button>
+                      <button 
+                        onClick={() => setAdminSubTab("appliances_sale")}
+                        className={`py-2 px-4 text-center font-extrabold text-[11px] tracking-tight transition-all rounded-none flex items-center gap-1.5 cursor-pointer ${
+                          adminSubTab === "appliances_sale" 
+                            ? "bg-brand-orange text-black font-black" 
+                            : "text-slate-400 hover:text-white"
+                        }`}
+                      >
+                        <ShoppingBag className="w-3.5 h-3.5" />
+                        <span>بيع الأجهزة المنزلية ({appliances.length})</span>
                       </button>
                     </div>
-                    <p className="text-[10px] text-slate-400">يرجى كتابة رمز الدولة أولاً دون إشارة الموجب (+) (مثال: 20 للجمهورية متبوعاً بالرقم)</p>
                   </div>
 
-                  {/* List & Edit existing items */}
-                  <div className="bg-[#111114] p-5 rounded-none border border-white/10 space-y-4">
-                    <h4 className="text-white font-black text-sm">📃 قائمة جرد ومخزون المبيعات الحالي بموقعك</h4>
-                    
-                    <div className="overflow-x-auto rounded-none border border-white/10">
-                      <table className="w-full text-right text-xs table-auto">
-                        <thead className="bg-[#0a0a0c] text-slate-400 uppercase font-bold text-[10px]">
-                          <tr>
-                            <th className="p-3.5">اسم قطعة الغيار</th>
-                            <th className="p-3.5">الفئة</th>
-                            <th className="p-3.5">السعر (ج.م)</th>
-                            <th className="p-3.5 text-center">حالة التوفر</th>
-                            <th className="p-3.5">صورة (رابط أول)</th>
-                            <th className="p-3.5 text-center">خيارات</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/10">
-                          {parts.map((p) => (
-                            <tr key={p.id} className="hover:bg-white/[0.02] transition-colors">
-                              <td className="p-3 font-semibold text-white">
-                                <input 
-                                  type="text"
-                                  value={p.name}
-                                  onChange={(e) => {
-                                    const updatedParts = parts.map(x => x.id === p.id ? { ...x, name: e.target.value } : x);
-                                    savePartsToStorage(updatedParts);
-                                  }}
-                                  className="bg-transparent border-0 border-b border-white/10 focus:border-brand-orange outline-none p-1 text-xs w-full text-white font-bold"
-                                />
-                              </td>
-                              <td className="p-3">
-                                <select 
-                                  value={p.cat}
-                                  onChange={(e) => {
-                                    const updatedParts = parts.map(x => x.id === p.id ? { ...x, cat: e.target.value as PartCategory } : x);
-                                    savePartsToStorage(updatedParts);
-                                  }}
-                                  className="bg-[#0a0a0c] border border-white/15 rounded-none p-1 text-xs text-white color-white"
-                                >
-                                  <option value="cooker">بوتجاز</option>
-                                  <option value="heater">سخان غاز</option>
-                                </select>
-                              </td>
-                              <td className="p-3">
-                                <input 
-                                  type="number"
-                                  value={p.price}
-                                  onChange={(e) => {
-                                    const updatedParts = parts.map(x => x.id === p.id ? { ...x, price: Number(e.target.value) } : x);
-                                    savePartsToStorage(updatedParts);
-                                  }}
-                                  className="bg-transparent border-0 border-b border-white/10 focus:border-brand-orange outline-none p-1 text-xs w-20 text-white font-bold"
-                                />
-                              </td>
-                              <td className="p-3 text-center">
-                                <button 
-                                  onClick={() => handleTogglePartAvailability(p.id)}
-                                  className={`px-3 py-1 rounded-none text-[10px] font-bold transition-all border shrink-0 ${
-                                    p.avail 
-                                      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" 
-                                      : "bg-red-500/10 border-red-500/25 text-red-400"
+                  {/* SUBTAB 1: INVENTORY MANAGEMENT */}
+                  {adminSubTab === "inventory" && (
+                    <div className="space-y-8">
+                      {/* Seeding & Demo Data Setup Container */}
+                      <div className="bg-brand-orange/5 p-5 rounded-none border border-brand-orange/20 space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                          <div className="space-y-1">
+                            <h4 className="text-brand-orange font-black text-sm flex items-center gap-1.5">
+                              <span>⚡ تهيئة منظومة الفنيين والتوجيه التلقائي التجريبي (Developer Seeding)</span>
+                            </h4>
+                            <p className="text-[10px] text-slate-300">
+                              اضغط هنا لزرع بيانات 8 فنيين تجريبيين على الفور واجهة الـ LocalStorage وتفعيل تغطية مناطق الجيزة الرئيسية. يتيح لك هذا اختبار دالة التوزيع الجيو-تخصصي للعملاء فوراً.
+                            </p>
+                          </div>
+                          
+                          <button 
+                            onClick={() => {
+                              seedInitialData(true);
+                              triggerToast("تمت تهيئة وزرع بيانات التوزيع التلقائي لـ 8 فنيين وتفعيل تغطية الجيزة بنجاح! ⚡");
+                            }}
+                            className="px-5 py-3 rounded-none bg-brand-orange hover:bg-brand-orange-dark text-black text-xs font-black transition-all cursor-pointer shadow-md inline-flex items-center gap-1.5 self-start sm:self-center shrink-0"
+                          >
+                            <span>زرع البيانات التجريبية 🧪</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Config Box: WA Number */}
+                      <div className="bg-[#111114] p-5 rounded-none border border-white/10 space-y-3">
+                        <h4 className="text-white font-black text-sm flex items-center gap-2">
+                          <Settings className="w-4 h-4 text-brand-orange animate-spin-slow" />
+                          <span>📱 تعيين رقم الواتس آب المسؤول لمسار الطلبات</span>
+                        </h4>
+                        <div className="flex items-center gap-2 max-w-sm">
+                          <input 
+                            type="text"
+                            placeholder="201117735952"
+                            value={waNumber}
+                            onChange={(e) => saveWaToStorage(e.target.value)}
+                            className="flex-grow p-2.5 rounded-none bg-[#0a0a0c] border border-white/15 text-white text-xs outline-none focus:border-brand-orange text-left font-bold"
+                            dir="ltr"
+                          />
+                          <button 
+                            onClick={() => triggerToast("تم حفظ وتحديث رقم هاتف المسؤول بنجاح")}
+                            className="px-4 py-2.5 rounded-none bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1 shrink-0"
+                          >
+                            <Save className="w-4 h-4" />
+                            <span>حفظ الرقم</span>
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-slate-400">يرجى كتابة رمز الدولة أولاً دون إشارة الموجب (+) (مثال: 20 للجمهورية متبوعاً بالرقم)</p>
+                      </div>
+
+                      {/* List & Edit existing items */}
+                      <div className="bg-[#111114] p-5 rounded-none border border-white/10 space-y-4">
+                        <h4 className="text-white font-black text-sm">📃 قائمة جرد ومخزون المبيعات الحالي بموقعك</h4>
+                        
+                        <div className="overflow-x-auto rounded-none border border-white/10">
+                          <table className="w-full text-right text-xs table-auto min-w-[600px]">
+                            <thead className="bg-[#0a0a0c] text-slate-400 uppercase font-bold text-[10px]">
+                              <tr>
+                                <th className="p-3.5">اسم قطعة الغيار</th>
+                                <th className="p-3.5">الفئة</th>
+                                <th className="p-3.5">السعر (ج.م)</th>
+                                <th className="p-3.5 text-center">حالة التوفر</th>
+                                <th className="p-3.5">صورة (رابط أول)</th>
+                                <th className="p-3.5 text-center">خيارات</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/10">
+                              {parts.map((p) => (
+                                <tr key={p.id} className="hover:bg-white/[0.02] transition-colors">
+                                  <td className="p-3 font-semibold text-white">
+                                    <input 
+                                      type="text"
+                                      value={p.name}
+                                      onChange={(e) => {
+                                        const updatedParts = parts.map(x => x.id === p.id ? { ...x, name: e.target.value } : x);
+                                        savePartsToStorage(updatedParts);
+                                      }}
+                                      className="bg-transparent border-0 border-b border-white/10 focus:border-brand-orange outline-none p-1 text-xs w-full text-white font-bold"
+                                    />
+                                  </td>
+                                  <td className="p-3">
+                                    <select 
+                                      value={p.cat}
+                                      onChange={(e) => {
+                                        const updatedParts = parts.map(x => x.id === p.id ? { ...x, cat: e.target.value as PartCategory } : x);
+                                        savePartsToStorage(updatedParts);
+                                      }}
+                                      className="bg-[#0a0a0c] border border-white/15 rounded-none p-1 text-xs text-white color-white"
+                                    >
+                                      <option value="cooker">بوتجاز</option>
+                                      <option value="heater">سخان غاز</option>
+                                    </select>
+                                  </td>
+                                  <td className="p-3">
+                                    <input 
+                                      type="number"
+                                      value={p.price}
+                                      onChange={(e) => {
+                                        const updatedParts = parts.map(x => x.id === p.id ? { ...x, price: Number(e.target.value) } : x);
+                                        savePartsToStorage(updatedParts);
+                                      }}
+                                      className="bg-transparent border-0 border-b border-white/10 focus:border-brand-orange outline-none p-1 text-xs w-20 text-white font-bold"
+                                    />
+                                  </td>
+                                  <td className="p-3 text-center">
+                                    <button 
+                                      onClick={() => handleTogglePartAvailability(p.id)}
+                                      className={`px-3 py-1 rounded-none text-[10px] font-bold transition-all border shrink-0 ${
+                                        p.avail 
+                                          ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" 
+                                          : "bg-red-500/10 border-red-500/25 text-red-400"
+                                      }`}
+                                    >
+                                      {p.avail ? "عرض بالمتجر" : "مخفي ومحذوف"}
+                                    </button>
+                                  </td>
+                                  <td className="p-3">
+                                    <input 
+                                      type="text"
+                                      value={p.img}
+                                      placeholder="https://..."
+                                      onChange={(e) => {
+                                        const updatedParts = parts.map(x => x.id === p.id ? { ...x, img: e.target.value } : x);
+                                        savePartsToStorage(updatedParts);
+                                      }}
+                                      className="bg-[#0a0a0c] border border-white/15 rounded-none p-1.5 text-[10px] w-36 text-slate-300 outline-none"
+                                    />
+                                  </td>
+                                  <td className="p-3 text-center">
+                                    <button 
+                                      onClick={() => handleDeletePart(p.id)}
+                                      className="p-1.5 rounded-none bg-red-500/10 border border-red-500/15 hover:bg-red-500/20 text-red-400 transition-all cursor-pointer inline-flex items-center justify-center"
+                                      title="حذف القطعة فوريا"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      {/* Add New Part Block Form */}
+                      <form onSubmit={handleAddPart} className="bg-[#111114] p-5 rounded-none border border-white/10 space-y-4">
+                        <h4 className="text-white font-black text-sm tracking-tight flex items-center gap-1.5">
+                          <Plus className="w-4 h-4 text-brand-orange" />
+                          <span>إضافة قطعة غيار جديدة للقائمة للمتجر</span>
+                        </h4>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                          <div className="space-y-1.5">
+                            <label className="text-xs text-slate-400 font-bold block">اسم قطعة الغيار</label>
+                            <input 
+                              type="text"
+                              placeholder="مثال: ترموكوبل سخان إيطالي"
+                              value={newPartName}
+                              onChange={(e) => setNewPartName(e.target.value)}
+                              className="w-full p-2.5 rounded-none bg-[#0a0a0c] border border-white/15 text-white text-xs outline-none focus:border-brand-orange font-bold"
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="text-xs text-slate-400 font-bold block">سعر التجزئة المالي (ج.م)</label>
+                            <input 
+                              type="number"
+                              placeholder="الرجاء كتابة السعر بالأرقام"
+                              value={newPartPrice}
+                              onChange={(e) => setNewPartPrice(e.target.value)}
+                              className="w-full p-2.5 rounded-none bg-[#0a0a0c] border border-white/15 text-white text-xs outline-none focus:border-brand-orange font-bold"
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="text-xs text-slate-400 font-bold block">فئة تصنيف القطعة</label>
+                            <select 
+                              value={newPartCat}
+                              onChange={(e) => setNewPartCat(e.target.value as PartCategory)}
+                              className="w-full p-2.5 rounded-none bg-[#0a0a0c] border border-white/15 text-white text-xs outline-none focus:border-brand-orange"
+                            >
+                              <option value="cooker">بوتجاز طهيي</option>
+                              <option value="heater">سخان غاز</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-1.5">
+                            <label className="text-xs text-slate-400 font-bold block">رابط الصورة (اختياري)</label>
+                            <input 
+                              type="text"
+                              placeholder="https://example.com/item.jpg"
+                              value={newPartImg}
+                              onChange={(e) => setNewPartImg(e.target.value)}
+                              className="w-full p-2.5 rounded-none bg-[#0a0a0c] border border-white/15 text-white text-xs outline-none focus:border-brand-orange text-left"
+                              dir="ltr"
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="text-xs text-slate-400 font-bold block">وصف مختصر للقطعة</label>
+                            <input 
+                              type="text"
+                              placeholder="مثال: يمنع تسريب الغاز في حالة انطفاء الشعلة المفاجئ..."
+                              value={newPartDesc}
+                              onChange={(e) => setNewPartDesc(e.target.value)}
+                              className="w-full p-2.5 rounded-none bg-[#0a0a0c] border border-white/15 text-white text-xs outline-none focus:border-brand-orange"
+                            />
+                          </div>
+                        </div>
+
+                        <button 
+                          type="submit"
+                          className="w-full sm:w-auto py-3 px-6 rounded-none bg-brand-orange hover:bg-brand-orange-dark text-black font-black text-xs transition-colors cursor-pointer"
+                        >
+                          تأكيد وبث قطعة الغيار الجديدة بالمتجر لقائمة العملاء
+                        </button>
+                      </form>
+                    </div>
+                  )}
+
+                  {/* SUBTAB 1.5: APPLIANCES CATALOG MANAGEMENT FOR ADMIN */}
+                  {adminSubTab === "appliances_sale" && (
+                    <div className="space-y-8 animate-fadeIn text-right" dir="rtl">
+                      {/* Configuration header & status cards */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="bg-[#111114] p-5 border border-white/10 space-y-1">
+                          <span className="text-xs text-slate-500 font-bold">// إحصائية العرض</span>
+                          <h4 className="text-xs font-black text-slate-300">إجمالي الأجهزة المنزلية</h4>
+                          <div className="text-3xl font-black text-white">{appliances.length} جهاز</div>
+                        </div>
+                        <div className="bg-[#111114] p-5 border border-white/10 space-y-1">
+                          <span className="text-xs text-[#f97316] font-bold">// التوصيل المتاح</span>
+                          <h4 className="text-xs font-black text-slate-300">أماكن تمثيل التوصيل والمبيعات</h4>
+                          <div className="text-3xl font-black text-[#f97316]">جميع المحافظات المتاحة</div>
+                        </div>
+                        <div className="bg-[#111114] p-5 border border-white/10 space-y-1">
+                          <span className="text-xs text-emerald-400 font-bold">// ضمان تك فيكس</span>
+                          <h4 className="text-xs font-black text-slate-300">مدة الكفالة للأجهزة المعروضة</h4>
+                          <div className="text-3xl font-black text-emerald-400">سنة كاملة بالمنزل</div>
+                        </div>
+                      </div>
+
+                      {/* Display table of listed appliances */}
+                      <div className="bg-[#111114] p-5 border border-white/10 space-y-4">
+                        <h4 className="text-white font-black text-sm block border-b border-white/10 pb-2">📦 كتالوج الأجهزة المعروضة حالياً للبيع</h4>
+                        
+                        {appliances.length === 0 ? (
+                          <div className="text-center py-10 text-slate-500 text-xs">
+                            لا توجد أجهزة مضافة حالياً في المعرض. استخدم النموذج أدناه لإضافة جهازك الأول!
+                          </div>
+                        ) : (
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-right text-xs">
+                              <thead>
+                                <tr className="border-b border-white/10 text-slate-400 uppercase text-[10px] tracking-wider">
+                                  <th className="py-3 px-2">صورة الجهاز</th>
+                                  <th className="py-3 px-2">نوع الجهاز</th>
+                                  <th className="py-3 px-2">الماركة والموديل</th>
+                                  <th className="py-3 px-2">الحالة</th>
+                                  <th className="py-3 px-2">مدة الاستهلاك</th>
+                                  <th className="py-3 px-2">السعر المطلوب</th>
+                                  <th className="py-3 px-2 text-center">الإجراءات</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-white/5 text-slate-200">
+                                {appliances.map((app) => (
+                                  <tr key={app.id} className="hover:bg-white/5 transition-colors">
+                                    <td className="py-3 px-2">
+                                      {app.imageUrl ? (
+                                        <img src={app.imageUrl} alt={app.brand} className="w-12 h-12 object-cover border border-white/10" referrerPolicy="no-referrer" />
+                                      ) : (
+                                        <div className="w-12 h-12 bg-slate-900 border border-white/10 flex items-center justify-center text-[10px]">بلا صورة</div>
+                                      )}
+                                    </td>
+                                    <td className="py-3 px-2 font-bold text-[#f97316]">{app.deviceType}</td>
+                                    <td className="py-3 px-2 font-black">{app.brand}</td>
+                                    <td className="py-3 px-2">{app.condition}</td>
+                                    <td className="py-3 px-2">{app.usageDuration}</td>
+                                    <td className="py-3 px-2 text-[#f97316] font-black">{app.price.toLocaleString()} ج.م</td>
+                                    <td className="py-3 px-2 text-center">
+                                      <button
+                                        onClick={() => {
+                                          setCustomConfirm({
+                                            show: true,
+                                            title: "حذف جهاز من المعرض",
+                                            message: `هل أنت متأكد من رغبتك بحذف هذا الجهاز (${app.brand}) من قائمة المبيعات المعروضة للعملاء؟`,
+                                            onConfirm: () => {
+                                              const updated = appliances.filter(a => a.id !== app.id);
+                                              saveAppliancesToStorage(updated);
+                                              triggerToast("تم حذف الجهاز بنجاح من الكتالوج المعروض! 🗑️");
+                                              setCustomConfirm(null);
+                                            }
+                                          });
+                                        }}
+                                        className="px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold transition-all rounded-none cursor-pointer text-[10px]"
+                                      >
+                                        حذف الجهاز 🗑️
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Form: Add Refurbished Appliance */}
+                      <div className="bg-[#111114] p-6 border border-white/10 space-y-6">
+                        <div className="border-b border-white/10 pb-2">
+                          <span className="text-xs text-[#f97316] uppercase font-black tracking-widest block">// تسجيل الأجهزة المستعملة وتدقيق مبيعات المعرض</span>
+                          <h4 className="text-white font-black text-sm">➕ إضافة جهاز منزل جديد للمعرض للعملاء</h4>
+                        </div>
+
+                        <form onSubmit={(e) => {
+                          e.preventDefault();
+                          if (!newAppBrand || !newAppCondition || !newAppPrice) {
+                            alert("الرجاء الملء الدقيق للماركة والحالة الفنية والسعر العام!");
+                            return;
+                          }
+                          const newApp: Appliance = {
+                            id: Date.now(),
+                            deviceType: newAppType,
+                            brand: newAppBrand,
+                            condition: newAppCondition,
+                            usageDuration: newAppUsage || "سنتين",
+                            price: Number(newAppPrice),
+                            imageUrl: newAppImage || "https://images.unsplash.com/photo-1571887455899-41d2ded28a64?auto=format&fit=crop&q=80&w=600",
+                            details: newAppDetails || "جهاز مجدد ومضمون كلياً من خلال مهندسو تك فيكس بضمان استبدال منزلي كامل."
+                          };
+
+                          const updated = [...appliances, newApp];
+                          saveAppliancesToStorage(updated);
+
+                          // Reset state fields
+                          setNewAppBrand("");
+                          setNewAppCondition("");
+                          setNewAppUsage("");
+                          setNewAppPrice("");
+                          setNewAppImage("");
+                          setNewAppDetails("");
+
+                          triggerToast("تم حفظ ونشر الجهاز الجديد بنجاح في الكتالوج!");
+                        }} className="space-y-4">
+                          
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] text-slate-400 font-bold block">تصنيف الجهاز المنزل <span className="text-[#f97316]">*</span></label>
+                              <select 
+                                value={newAppType}
+                                onChange={(e) => setNewAppType(e.target.value)}
+                                className="w-full p-2.5 bg-[#0a0a0c] border border-white/15 text-white text-xs outline-none focus:border-brand-orange font-bold"
+                              >
+                                <option value="بوتاجاز">بوتاجاز</option>
+                                <option value="ثلاجة">ثلاجة</option>
+                                <option value="سخان">سخان</option>
+                                <option value="غسالة">غسالة</option>
+                                <option value="أخرى">أخرى</option>
+                              </select>
+                            </div>
+
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] text-slate-400 font-bold block">الماركة والموديل تفصيلياً (مثال: يونيفرسال 5 شعلة استانلس) <span className="text-[#f97316]">*</span></label>
+                              <input 
+                                type="text"
+                                required
+                                placeholder="الماركة والموديل"
+                                value={newAppBrand}
+                                onChange={(e) => setNewAppBrand(e.target.value)}
+                                className="w-full p-2.5 bg-[#0a0a0c] border border-white/15 text-white text-xs outline-none focus:border-brand-orange"
+                              />
+                            </div>
+
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] text-slate-400 font-bold block">الحالة الفنية العامة (بين: ممتازة، متهالك ومجدد، جيدة جداً) <span className="text-[#f97316]">*</span></label>
+                              <input 
+                                type="text"
+                                required
+                                placeholder="مثال: ممتازة كالعذراء / مجدد كلياً"
+                                value={newAppCondition}
+                                onChange={(e) => setNewAppCondition(e.target.value)}
+                                className="w-full p-2.5 bg-[#0a0a0c] border border-white/15 text-white text-xs outline-none focus:border-brand-orange"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] text-slate-400 font-bold block">مدة الاستخدام التقريبية للجهاز (مثال: 6 أشهر، سنة ونصف) <span className="text-[#f97316]">*</span></label>
+                              <input 
+                                type="text"
+                                placeholder="مثال: سنة واحدة"
+                                value={newAppUsage}
+                                onChange={(e) => setNewAppUsage(e.target.value)}
+                                className="w-full p-2.5 bg-[#0a0a0c] border border-white/15 text-white text-xs outline-none focus:border-brand-orange"
+                              />
+                            </div>
+
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] text-slate-400 font-bold block">السعر المطلوب النهائي للبيع بالمصري <span className="text-[#f97316]">*</span></label>
+                              <input 
+                                type="number"
+                                required
+                                placeholder="اكتب قيمة السعر بالجنيه فقط"
+                                value={newAppPrice}
+                                onChange={(e) => setNewAppPrice(e.target.value === "" ? "" : Number(e.target.value))}
+                                className="w-full p-2.5 bg-[#0a0a0c] border border-white/15 text-white text-xs outline-none focus:border-brand-orange text-left font-bold"
+                                dir="ltr"
+                              />
+                            </div>
+
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] text-slate-400 font-bold block">رابط صورة الجهاز الحقيقية (اختياري / يدعم روابط Unsplash) 📷</label>
+                              <input 
+                                type="url"
+                                placeholder="بث رابط صورة الجهاز المنزل"
+                                value={newAppImage}
+                                onChange={(e) => setNewAppImage(e.target.value)}
+                                className="w-full p-2.5 bg-[#0a0a0c] border border-white/15 text-white text-xs outline-none focus:border-[#f97316]"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] text-slate-400 font-bold block">شرح تفصيلي إضافي ومميزات الجهاز (الملحقات، الكفالة، شروط التوصيل)</label>
+                            <textarea 
+                              rows={3}
+                              placeholder="مواصفات تبريد الثلاجة، كفاءة شواية الفران البوتجاز، أو أمن السخان الديجيتال بالماركة..."
+                              value={newAppDetails}
+                              onChange={(e) => setNewAppDetails(e.target.value)}
+                              className="w-full p-2.5 bg-[#0a0a0c] border border-white/15 text-white text-xs outline-none focus:border-[#f97316]"
+                            />
+                          </div>
+
+                          <button 
+                            type="submit"
+                            className="w-full sm:w-auto py-3 px-6 rounded-none bg-[#f97316] hover:bg-[#d9530f] text-black font-black text-xs transition-colors cursor-pointer mt-2"
+                          >
+                            تأكيد وبث الجهاز الجديد للبيع في المتجر للعملاء 🚀
+                          </button>
+
+                        </form>
+                      </div>
+
+                    </div>
+                  )}
+
+                  {/* SUBTAB 2: CUSTOMER DATABASE CRM */}
+                  {adminSubTab === "customers" && (
+                    <div className="space-y-8 animate-fadeIn">
+                      
+                      {/* Global Campaign Panel */}
+                      <div className="bg-[#111114] p-5 rounded-none border border-white/10 space-y-4">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">📢</span>
+                          <h4 className="text-white font-black text-sm">حملة الرسائل الجماعية واستقطاب العملاء الدائمين</h4>
+                        </div>
+                        <p className="text-slate-400 text-xs">
+                          قم بتحديد العملاء المطلوبين من الجدول عبر مربعات التحديد لتطلق لهم بمفتاح مجمع رسالة دورية ترويجية.
+                        </p>
+                        
+                        <div className="space-y-1.5">
+                          <label className="text-xs text-slate-400 font-bold block">نص الرسالة الموحدة للحملة الجماهيرية:</label>
+                          <textarea 
+                            value={bulkMessageText}
+                            onChange={(e) => setBulkMessageText(e.target.value)}
+                            className="w-full p-3 rounded-none bg-[#0a0a0c] border border-white/15 text-white text-xs outline-none focus:border-brand-orange h-20 leading-relaxed font-bold"
+                            placeholder="مثال: أهلاً بك عملينا العزيز من مركز تك فيكس للمجموعات..."
+                          />
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2 border-t border-white/5">
+                          <div className="text-xs text-slate-400 font-normal">
+                            تم تحديد <span className="text-brand-orange font-black text-sm">{selectedCusts.length}</span> عملاء من إجمالي <span className="text-white font-black text-sm">{customers.length}</span> عميل بالمنظومة.
+                          </div>
+                          
+                          <div className="flex items-center gap-2 w-full sm:w-auto">
+                            <button
+                              onClick={() => setSelectedCusts([])}
+                              disabled={selectedCusts.length === 0}
+                              className="py-2.5 px-4 rounded-none bg-white/5 hover:bg-white/10 text-slate-300 font-bold text-xs transition-all disabled:opacity-40 cursor-pointer"
+                            >
+                              إلغاء التحديد الجماعي
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (selectedCusts.length === 0) {
+                                  alert("الرجاء تحديد عميل واحد على الأقل أولاً لإرسال الحملة الجماعية");
+                                  return;
+                                }
+                                
+                                // Process selected customers sequentially in a campaign mode
+                                const readyCusts = customers.filter(c => selectedCusts.includes(c.id));
+                                if (readyCusts.length > 0) {
+                                  // Open first match
+                                  const c0 = readyCusts[0];
+                                  const cleanPhone = c0.phone.trim().replace(/\D/g, "");
+                                  window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(bulkMessageText)}`, "_blank", "noreferrer");
+                                  
+                                  // Message explaining how to handle multiple queue elements sequentially tanpa diblokir popup blocker
+                                  alert(`جاري تشغيل الحملة. تم فتح المحادثة الأولى وبث الرسالة لحساب العميل (${c0.name}). يمكنك متابعة النقر على أيقونات الإرسال المجاورة لبقية العملاء المحددين في القائمة للتوالي السهل.`);
+                                }
+                              }}
+                              disabled={selectedCusts.length === 0}
+                              className="py-2.5 px-6 rounded-none bg-brand-orange hover:bg-brand-orange-dark text-black font-black text-xs transition-all disabled:bg-neutral-800 disabled:text-neutral-500 cursor-pointer flex items-center gap-1"
+                            >
+                              <span>إرسال الحملة الجماعية الواتس آب ({selectedCusts.length})</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Customer CRM Table */}
+                      <div className="bg-[#111114] p-5 rounded-none border border-white/10 space-y-4">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <h4 className="text-white font-black text-sm flex items-center gap-2">
+                            <span>👥 رصيد وقاعدة بيانات العملاء التاريخية</span>
+                            <span className="px-2 py-0.5 text-[10px] bg-white/10 text-neutral-300 font-extrabold">{customers.length} سجل</span>
+                          </h4>
+                          
+                          <button 
+                            onClick={() => {
+                              setCustomConfirm({
+                                show: true,
+                                title: "مسح قاعدة بيانات العملاء",
+                                message: "هل أنت متأكد من حذف كامل سجلات صيانة الطلبات وسجل العملاء التاريخي بأكمله؟ لا يمكن التراجع عن هذا الإجراء.",
+                                onConfirm: () => {
+                                  saveCustomersToStorage([]);
+                                  triggerToast("تم تنظيف وتفريغ قاعدة بيانات العملاء بنجاح 🗑️");
+                                  setCustomConfirm(null);
+                                }
+                              });
+                            }}
+                            className="text-xs text-red-400 hover:text-red-500 font-bold hover:underline transition-all cursor-pointer"
+                          >
+                            مسح كامل تتبع العملاء التاريخي
+                          </button>
+                        </div>
+
+                        {customers.length === 0 ? (
+                          <div className="text-center py-12 text-slate-500 text-xs">
+                            لا يوجد أي عملاء مسجلين حالياً بالمنظومة المحلي، جاري حفظ العملاء تلقائياً عند طلب صيانة أو مبيعات.
+                          </div>
+                        ) : (
+                          <div className="overflow-x-auto rounded-none border border-white/10">
+                            <table className="w-full text-right text-xs table-auto min-w-[750px]">
+                              <thead className="bg-[#0a0a0c] text-slate-400 font-bold text-[10px]">
+                                <tr>
+                                  <th className="p-3 w-10 text-center">
+                                    <input 
+                                      type="checkbox"
+                                      checked={customers.length > 0 && selectedCusts.length === customers.length}
+                                      onChange={() => {
+                                        if (selectedCusts.length === customers.length) {
+                                          setSelectedCusts([]);
+                                        } else {
+                                          setSelectedCusts(customers.map(c => c.id));
+                                        }
+                                      }}
+                                      className="cursor-pointer"
+                                    />
+                                  </th>
+                                  <th className="p-3">اسم العميل</th>
+                                  <th className="p-3">الهاتف</th>
+                                  <th className="p-3">العنوان والمنطقة</th>
+                                  <th className="p-3">نوع الخدمة</th>
+                                  <th className="p-3 text-center">التاريخ</th>
+                                  <th className="p-3">توجيه الرسالة مخصصة (صيانة/حملة)</th>
+                                  <th className="p-3 text-center">حملات وتواصل</th>
+                                  <th className="p-3 text-center">حذف العميل</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-white/10">
+                                {customers.map((c) => (
+                                  <tr key={c.id} className="hover:bg-white/[0.01] transition-colors">
+                                    <td className="p-3 text-center">
+                                      <input 
+                                        type="checkbox"
+                                        checked={selectedCusts.includes(c.id)}
+                                        onChange={() => {
+                                          if (selectedCusts.includes(c.id)) {
+                                            setSelectedCusts(prev => prev.filter(x => x !== c.id));
+                                          } else {
+                                            setSelectedCusts(prev => [...prev, c.id]);
+                                          }
+                                        }}
+                                        className="cursor-pointer"
+                                      />
+                                    </td>
+                                    <td className="p-3 text-white font-black">
+                                      <input 
+                                        type="text"
+                                        value={c.name}
+                                        onChange={(e) => {
+                                          const updated = customers.map(x => x.id === c.id ? { ...x, name: e.target.value } : x);
+                                          saveCustomersToStorage(updated);
+                                        }}
+                                        className="bg-[#0a0a0c]/80 border border-white/10 focus:border-brand-orange p-1 px-1.5 text-xs w-full text-white font-bold outline-none rounded-none transition-all"
+                                        placeholder="اسم العميل"
+                                      />
+                                    </td>
+                                    <td className="p-3 font-mono text-slate-300 antialiased font-bold text-left" dir="ltr">
+                                      <input 
+                                        type="text"
+                                        value={c.phone}
+                                        onChange={(e) => {
+                                          const updated = customers.map(x => x.id === c.id ? { ...x, phone: e.target.value } : x);
+                                          saveCustomersToStorage(updated);
+                                        }}
+                                        className="bg-[#0a0a0c]/80 border border-white/10 focus:border-brand-orange p-1 px-1.5 text-xs w-full text-slate-300 font-mono text-left font-bold outline-none rounded-none transition-all"
+                                        placeholder="رقم الهاتف"
+                                      />
+                                    </td>
+                                    <td className="p-3">
+                                      <select 
+                                        value={c.city}
+                                        onChange={(e) => {
+                                          const updated = customers.map(x => x.id === c.id ? { ...x, city: e.target.value } : x);
+                                          saveCustomersToStorage(updated);
+                                          triggerToast(`تم تحديث منطقة العميل تلقائياً إلى ${e.target.value}`);
+                                        }}
+                                        className="bg-[#0a0a0c] border border-white/10 focus:border-brand-orange p-1 text-[11px] text-brand-orange font-black w-full outline-none rounded-none mb-1 text-right"
+                                      >
+                                        {covAreas.map((area, idx) => (
+                                          <option key={idx} value={area.name}>{area.name}</option>
+                                        ))}
+                                      </select>
+                                      <input 
+                                        type="text"
+                                        value={c.address}
+                                        onChange={(e) => {
+                                          const updated = customers.map(x => x.id === c.id ? { ...x, address: e.target.value } : x);
+                                          saveCustomersToStorage(updated);
+                                        }}
+                                        className="bg-[#0a0a0c]/80 border border-white/10 focus:border-brand-orange p-1 px-1.5 text-[10px] w-full text-slate-400 font-semibold outline-none rounded-none"
+                                        placeholder="تفاصيل العنوان"
+                                      />
+                                    </td>
+                                    <td className="p-3">
+                                      <select 
+                                        value={c.serviceType}
+                                        onChange={(e) => {
+                                          const updated = customers.map(x => x.id === c.id ? { ...x, serviceType: e.target.value } : x);
+                                          saveCustomersToStorage(updated);
+                                        }}
+                                        className="bg-[#0a0a0c] border border-white/10 focus:border-[#4f46e5] p-1 text-[11px] text-slate-300 font-bold w-full outline-none rounded-none mb-1 text-right"
+                                      >
+                                        <option value="طلب صيانة">طلب صيانة 🔧</option>
+                                        <option value="شراء قطع غيار">شراء قطع غيار 🛒</option>
+                                        <option value="بيع وتجديد أجهزة">بيع وتجديد أجهزة ♻️</option>
+                                        <option value="تجديد">تجديد 🏷️</option>
+                                      </select>
+                                      <input 
+                                        type="text"
+                                        value={c.details || ""}
+                                        onChange={(e) => {
+                                          const updated = customers.map(x => x.id === c.id ? { ...x, details: e.target.value } : x);
+                                          saveCustomersToStorage(updated);
+                                        }}
+                                        className="bg-[#0a0a0c]/80 border border-white/10 focus:border-brand-orange p-1 px-1.5 text-[10px] w-full text-slate-400 outline-none rounded-none"
+                                        placeholder="ملاحظات وتفاصيل الجهاز"
+                                      />
+                                    </td>
+                                    <td className="p-3 text-slate-400 text-center text-[10px] font-bold" dir="rtl">{c.timestamp}</td>
+                                    <td className="p-3">
+                                      <div className="flex items-center gap-1 max-w-[240px]">
+                                        <input 
+                                          type="text"
+                                          placeholder="رسالة دورية مخصصة للعميل..."
+                                          value={singleOffers[c.id] || ""}
+                                          onChange={(e) => {
+                                            const val = e.target.value;
+                                            setSingleOffers(prev => ({ ...prev, [c.id]: val }));
+                                          }}
+                                          className="p-1 px-2 rounded-none bg-[#0a0a0c] border border-white/10 text-white text-[10px] outline-none font-bold focus:border-brand-orange flex-grow"
+                                        />
+                                        <button 
+                                          onClick={() => {
+                                            const customMsg = singleOffers[c.id] || `مرحباً ${c.name} 🛠️، نود التذكير بضرورة جدولة صيانة وقائية على جهازكم لضمان أمانه المستمر ومستعدين لإرسال فني فوري بخصم تك فيكس الخاص!`;
+                                            const cleanPhone = c.phone.trim().replace(/\D/g, "");
+                                            window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(customMsg)}`, "_blank", "noreferrer");
+                                          }}
+                                          className="px-2.5 py-1 text-[10px] bg-[#1a1a20] border border-white/10 hover:border-transparent hover:bg-emerald-600 hover:text-white text-slate-300 font-bold transition-all cursor-pointer shrink-0"
+                                        >
+                                          إرسال مخصص
+                                        </button>
+                                      </div>
+                                    </td>
+                                    <td className="p-3 text-center">
+                                      <button 
+                                        onClick={() => {
+                                          const cleanPhone = c.phone.trim().replace(/\D/g, "");
+                                          window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(bulkMessageText)}`, "_blank", "noreferrer");
+                                        }}
+                                        className="px-2 py-1 text-[10px] bg-brand-orange/10 hover:bg-brand-orange hover:text-black text-brand-orange font-bold border border-brand-orange/20 transition-all cursor-pointer"
+                                        title="إرسال رسالة الحملة الفردية الموحدة"
+                                      >
+                                        بث الحملة الموحدة 📢
+                                      </button>
+                                    </td>
+                                    <td className="p-3 text-center">
+                                      <button 
+                                        onClick={() => {
+                                          setCustomConfirm({
+                                            show: true,
+                                            title: "حذف سجل عميل",
+                                            message: `هل تريد بالتأكيد إزالة سجل العميل (${c.name}) نهائياً من قاعدة بيانات المنظومة؟`,
+                                            onConfirm: () => {
+                                              const updated = customers.filter(x => x.id !== c.id);
+                                              saveCustomersToStorage(updated);
+                                              triggerToast("تم حذف سجل العميل بنجاح 🗑️");
+                                              setCustomConfirm(null);
+                                            }
+                                          });
+                                        }}
+                                        className="p-2 rounded-none bg-red-500/10 hover:bg-red-600 hover:text-white border border-red-500/20 text-red-400 transition-all cursor-pointer inline-flex items-center justify-center"
+                                        title="حذف السجل 🗑️"
+                                      >
+                                        <span>🗑️</span>
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Custom Requests Log Section */}
+                      <div className="bg-[#111114] p-5 rounded-none border border-white/10 space-y-4 font-sans">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <h4 className="text-white font-black text-sm flex items-center gap-2">
+                            <span>📋 سجل تتبع طلبات التوجيه التلقائي الذكي للفنيين (customRequestsLog)</span>
+                            <span className="px-2 py-0.5 text-[10px] bg-brand-orange/15 text-brand-orange border border-brand-orange/20 font-extrabold">{customRequestsLog.length} طلب ذكي</span>
+                          </h4>
+                          
+                          <button 
+                            onClick={() => {
+                              setCustomConfirm({
+                                show: true,
+                                title: "مسح سجل التوجيه التلقائي",
+                                message: "هل أنت متأكد من مسح كامل سجل طلبات التوجيه التلقائي (customRequestsLog) المحفوظ؟ لا يمكن استعادته لاحقاً.",
+                                onConfirm: () => {
+                                  saveCustomRequestsLog([]);
+                                  triggerToast("تم مسح سجل التوجيه التلقائي بنجاح 📋🗑️");
+                                  setCustomConfirm(null);
+                                }
+                              });
+                            }}
+                            className="text-xs text-red-400 hover:text-red-500 font-bold hover:underline transition-all cursor-pointer"
+                          >
+                            مسح سجل التوجيه التلقائي
+                          </button>
+                        </div>
+
+                        {customRequestsLog.length === 0 ? (
+                          <div className="text-center py-12 text-slate-500 text-xs">
+                            لا يوجد أي أوردرات تم توجيهها تلقائياً للفنيين حالياً. سيقوم النظام بحفظها تلقائياً بمجرد إرسال العميل لطلب صيانة جديد.
+                          </div>
+                        ) : (
+                          <div className="overflow-x-auto rounded-none border border-white/10">
+                            <table className="w-full text-right text-xs table-auto min-w-[750px]">
+                              <thead className="bg-[#0a0a0c] text-slate-400 font-bold text-[10px]">
+                                <tr>
+                                  <th className="p-3">اسم العميل</th>
+                                  <th className="p-3">رقم العميل</th>
+                                  <th className="p-3">المنطقة والسكن</th>
+                                  <th className="p-3">الجهاز والماركة</th>
+                                  <th className="p-3 font-bold text-brand-orange">الفني المخصص</th>
+                                  <th className="p-3 text-center">التوقيت والتاريخ</th>
+                                  <th className="p-3 text-center">حالة التوجيه</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-white/10">
+                                {customRequestsLog.map((log, idx) => (
+                                  <tr key={log.id || idx} className="hover:bg-white/[0.01] transition-colors">
+                                    <td className="p-3 text-white font-bold">{log.customerName}</td>
+                                    <td className="p-3 font-mono text-slate-300 text-left" dir="ltr">{log.phone}</td>
+                                    <td className="p-3">
+                                      <div className="text-slate-300 font-medium">{log.city}</div>
+                                      <div className="text-[10px] text-slate-500 font-normal">{log.address}</div>
+                                    </td>
+                                    <td className="p-3">
+                                      <span className="px-2 py-0.5 rounded-none bg-white/5 border border-white/10 text-slate-300 text-[10px] inline-block font-extrabold mb-1">{log.deviceType}</span>
+                                      <div className="text-[10px] text-slate-400 font-medium">{log.brand} - {log.problem}</div>
+                                    </td>
+                                    <td className="p-3 font-bold text-brand-orange">
+                                      <div>👤 {log.techName}</div>
+                                      <div className="text-[10px] font-mono text-slate-500" dir="ltr">{log.techPhone}</div>
+                                    </td>
+                                    <td className="p-3 text-slate-400 text-center text-[10px]" dir="rtl">{log.timestamp}</td>
+                                    <td className="p-3 text-center">
+                                      <span className="px-2 py-0.5 text-[10px] font-black bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                                        توجيه تلقائي ناجح ✓
+                                      </span>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+
+                    </div>
+                  )}
+
+                  {/* SUBTAB 3: TECHNICIAN MANAGEMENT */}
+                  {adminSubTab === "technicians" && (
+                    <div className="space-y-8 animate-fadeIn text-right" dir="rtl">
+                      
+                      {/* Active Technicians Geographical Board List */}
+                      <div className="bg-[#111114] p-5 rounded-none border border-white/10 space-y-4 font-sans">
+                        <div className="flex flex-col sm:flex-row items-baseline justify-between border-b border-white/5 pb-3 gap-2">
+                          <h4 className="text-white font-black text-sm flex items-center gap-1.5">
+                            <span>🛠️ لوحة إدارة الفنيين والمسؤوليات التوزيعية المزدوجة</span>
+                          </h4>
+                          <span className="text-[10px] text-slate-400">سجل فنيين لتسريح طلبات الصيانة والمبيعات بمساراتهم ومحافظاتهم ذاتياً</span>
+                        </div>
+
+                        <div className="overflow-x-auto rounded-none border border-white/10">
+                          <table className="w-full text-right text-xs table-auto min-w-[650px]">
+                            <thead className="bg-[#0a0a0c] text-slate-400 font-bold text-[10px]">
+                              <tr>
+                                <th className="p-3.5">المهندس الفني</th>
+                                <th className="p-3.5">قناة الاتصال المباشرة</th>
+                                <th className="p-3.5">أجهزة التخصص</th>
+                                <th className="p-3.5">المناطق الجغرافية المغطاة</th>
+                                <th className="p-3.5 text-center">التحكم والتعديل والضبط</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/10 font-bold text-slate-300">
+                              {technicians.length === 0 ? (
+                                <tr>
+                                  <td colSpan={5} className="p-8 text-center text-slate-500 text-xs">
+                                    لا يوجد فنيين معرفين، جميع طلبات الصيانة والقطع يتم توجيهها تلقائياً إلى رقم المسؤول العام.
+                                  </td>
+                                </tr>
+                              ) : (
+                                technicians.map((t) => {
+                                  const isEditing = editingTechId === t.id;
+                                  return (
+                                    <React.Fragment key={t.id}>
+                                      <tr className="hover:bg-white/[0.02] transition-colors">
+                                        <td className="p-3">
+                                          <div className="flex items-center gap-2">
+                                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
+                                            <span className="text-white text-xs font-black">{t.name}</span>
+                                          </div>
+                                        </td>
+                                        <td className="p-3">
+                                          <span className="text-slate-400 text-xs font-mono select-all font-bold block" dir="ltr">
+                                            {t.phone}
+                                          </span>
+                                        </td>
+                                        <td className="p-3">
+                                          <div className="flex flex-wrap gap-1">
+                                            {(t.specialties || ["بوتجاز", "سخان غاز"]).map((spec, specIdx) => (
+                                              <span 
+                                                key={specIdx} 
+                                                className="px-1.5 py-0.5 text-[9px] bg-amber-500/10 border border-amber-500/25 text-amber-400 rounded-none font-bold"
+                                              >
+                                                {spec}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        </td>
+                                        <td className="p-3">
+                                          <div className="flex flex-wrap gap-1 max-w-sm">
+                                            {(t.cities || [t.city || "طموة"]).map((city, cityIdx) => (
+                                              <span 
+                                                key={cityIdx} 
+                                                className="px-1.5 py-0.5 text-[9px] bg-brand-orange/10 border border-brand-orange/25 text-brand-orange rounded-none font-bold"
+                                              >
+                                                {city}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        </td>
+                                        <td className="p-3 text-center">
+                                          <div className="flex items-center gap-1.5 justify-center">
+                                            <button 
+                                              onClick={() => {
+                                                if (isEditing) {
+                                                  setEditingTechId(null);
+                                                } else {
+                                                  setEditingTechId(t.id);
+                                                  setEditTechName(t.name);
+                                                  setEditTechPhone(t.phone);
+                                                  setEditTechSpecs(t.specialties || ["بوتجاز", "سخان غاز"]);
+                                                  setEditTechCities(t.cities || [t.city || "طموة"]);
+                                                }
+                                              }}
+                                              className={`py-1.5 px-3 rounded-none text-[10px] font-black cursor-pointer transition-all shrink-0 ${
+                                                isEditing 
+                                                  ? "bg-slate-700 text-white" 
+                                                  : "bg-[#0a0a0c] border border-white/10 text-slate-300 hover:border-brand-orange hover:text-white"
+                                              }`}
+                                            >
+                                              {isEditing ? "إغلاق التعديل" : "✍️ تعديل التخصص والمناطق"}
+                                            </button>
+
+                                            {deleteConfirmId === t.id ? (
+                                              <div className="flex items-center gap-1">
+                                                <button 
+                                                  onClick={() => {
+                                                    const updated = technicians.filter(x => x.id !== t.id);
+                                                    saveTechniciansToStorage(updated);
+                                                    setDeleteConfirmId(null);
+                                                    triggerToast(`تم فصل وإلغاء تعيين الفني ${t.name} بنجاح`);
+                                                  }}
+                                                  className="py-1 px-2 rounded-none bg-red-600 hover:bg-red-700 text-white font-black text-[9px] cursor-pointer"
+                                                >
+                                                  تأكيد حذف
+                                                </button>
+                                                <button 
+                                                  onClick={() => setDeleteConfirmId(null)}
+                                                  className="py-1 px-1.5 bg-white/10 hover:bg-white/15 text-slate-300 text-[9px] cursor-pointer"
+                                                >
+                                                  إلغاء
+                                                </button>
+                                              </div>
+                                            ) : (
+                                              <button 
+                                                onClick={() => setDeleteConfirmId(t.id)}
+                                                className="p-1 px-1.5 rounded-none bg-red-500/10 hover:bg-red-500 hover:text-white text-red-400 border border-red-500/15 transition-all text-[10px] cursor-pointer inline-flex items-center"
+                                                title="إزالة الفني من المنظومة"
+                                              >
+                                                <Trash2 className="w-3 h-3" />
+                                              </button>
+                                            )}
+                                          </div>
+                                        </td>
+                                      </tr>
+
+                                      {/* Expanded Inline Editing Area for Row */}
+                                      {isEditing && (
+                                        <tr>
+                                          <td colSpan={5} className="bg-[#0b0b0d] p-5 border-y border-white/10 text-right animate-fadeIn">
+                                            <div className="space-y-4 max-w-4xl mx-auto">
+                                              <h5 className="text-white font-black text-xs border-b border-white/5 pb-2">📋 تعديل تفاصيل الفني الجغرافية والفنية: {t.name}</h5>
+                                              
+                                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                <div className="space-y-1">
+                                                  <label className="text-[10px] text-slate-400 block font-bold">الاسم المهني للفني</label>
+                                                  <input 
+                                                    type="text"
+                                                    value={editTechName}
+                                                    onChange={(e) => setEditTechName(e.target.value)}
+                                                    className="w-full p-2.5 rounded-none bg-[#111114] border border-white/15 text-white text-xs outline-none focus:border-brand-orange font-bold font-sans"
+                                                  />
+                                                </div>
+
+                                                <div className="space-y-1">
+                                                  <label className="text-[10px] text-slate-400 block font-bold">رقم هاتف الواتساب الفردي</label>
+                                                  <input 
+                                                    type="text"
+                                                    value={editTechPhone}
+                                                    onChange={(e) => setEditTechPhone(e.target.value)}
+                                                    className="w-full p-2.5 rounded-none bg-[#111114] border border-white/15 text-white text-xs outline-none focus:border-brand-orange font-bold font-sans text-left"
+                                                    dir="ltr"
+                                                  />
+                                                </div>
+                                              </div>
+
+                                              {/* Specialty Edit */}
+                                              <div className="space-y-1 overflow-x-hidden">
+                                                <label className="text-[10px] text-slate-400 block font-bold font-sans">تخصص أجهزة الصيانة</label>
+                                                <div className="flex gap-4 p-2 bg-[#111114] border border-white/10 w-fit">
+                                                  <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-white">
+                                                    <input 
+                                                      type="checkbox"
+                                                      checked={editTechSpecs.includes("بوتجاز")}
+                                                      onChange={(e) => {
+                                                        const isChecked = e.target.checked;
+                                                        setEditTechSpecs(prev => 
+                                                          isChecked ? [...prev, "بوتجاز"] : prev.filter(x => x !== "بوتجاز")
+                                                        );
+                                                      }}
+                                                      className="accent-brand-orange cursor-pointer"
+                                                    />
+                                                    <span>صيانة بوتجازات</span>
+                                                  </label>
+                                                  <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-white">
+                                                    <input 
+                                                      type="checkbox"
+                                                      checked={editTechSpecs.includes("سخان غاز")}
+                                                      onChange={(e) => {
+                                                        const isChecked = e.target.checked;
+                                                        setEditTechSpecs(prev => 
+                                                          isChecked ? [...prev, "سخان غاز"] : prev.filter(x => x !== "سخان غاز")
+                                                        );
+                                                      }}
+                                                      className="accent-brand-orange cursor-pointer"
+                                                    />
+                                                    <span>صيانة سخانات غاز</span>
+                                                  </label>
+                                                </div>
+                                              </div>
+
+                                              {/* Multiple Cities Edit */}
+                                              <div className="space-y-1">
+                                                <label className="text-[10px] text-slate-400 block font-bold font-sans">المناطق السكنية المغطاة (تحديد متعدد)</label>
+                                                <div className="p-3 bg-[#111114] border border-white/10 max-h-36 overflow-y-auto grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                                  {covAreas.filter(area => area.active).map((area, idx) => {
+                                                    const isSelected = editTechCities.includes(area.name);
+                                                    return (
+                                                      <label key={idx} className="flex items-center gap-2 text-[10px] cursor-pointer text-slate-300 font-bold hover:text-white">
+                                                        <input 
+                                                          type="checkbox"
+                                                          checked={isSelected}
+                                                          onChange={(e) => {
+                                                            const isChecked = e.target.checked;
+                                                            setEditTechCities(prev => 
+                                                              isChecked ? [...prev, area.name] : prev.filter(c => c !== area.name)
+                                                            );
+                                                          }}
+                                                          className="accent-brand-orange cursor-pointer w-3.5 h-3.5"
+                                                        />
+                                                        <span>{area.name} <span className="text-[8px] text-slate-500 font-sans font-bold">({area.gov})</span></span>
+                                                      </label>
+                                                    );
+                                                  })}
+                                                </div>
+                                              </div>
+
+                                              <div className="flex gap-2">
+                                                <button 
+                                                  onClick={() => {
+                                                    if (!editTechName.trim() || !editTechPhone.trim()) {
+                                                      alert("الرجاء إدخال بيانات صحيحة للفني أولاً");
+                                                      return;
+                                                    }
+                                                    if (editTechSpecs.length === 0) {
+                                                      alert("يجب اختيار تخصص واحد على الأقل للفني");
+                                                      return;
+                                                    }
+                                                    if (editTechCities.length === 0) {
+                                                      alert("يجب تعيين منطقة سكنية واحدة على الأقل لتغطية هذا الفني");
+                                                      return;
+                                                    }
+                                                    
+                                                    const formattedPhone = formatEgyptPhone(editTechPhone);
+                                                    const updated = technicians.map(x => x.id === t.id ? { 
+                                                      ...x, 
+                                                      name: editTechName.trim(), 
+                                                      phone: formattedPhone,
+                                                      city: editTechCities[0],
+                                                      cities: editTechCities,
+                                                      specialties: editTechSpecs
+                                                    } : x);
+
+                                                    saveTechniciansToStorage(updated);
+                                                    setEditingTechId(null);
+                                                    triggerToast(`تم تحديث التخصص والمناطق المغطاة للفني ${editTechName} بنجاح! ⚡`);
+                                                  }}
+                                                  className="py-1.5 px-4 bg-brand-orange hover:bg-brand-orange-dark text-black text-xs font-black transition-all cursor-pointer rounded-none border border-transparent"
+                                                >
+                                                  حفظ التعديلات 💾
+                                                </button>
+                                                <button 
+                                                  type="button"
+                                                  onClick={() => setEditingTechId(null)}
+                                                  className="py-1.5 px-4 bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-bold transition-all cursor-pointer rounded-none"
+                                                >
+                                                  إلغاء التعديل
+                                                </button>
+                                              </div>
+                                            </div>
+                                          </td>
+                                        </tr>
+                                      )}
+                                    </React.Fragment>
+                                  );
+                                })
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      {/* Add New Technician Block Form */}
+                      <div className="bg-[#111114] p-5 rounded-none border border-white/10 space-y-4 font-sans">
+                        <h4 className="text-white font-black text-sm tracking-tight flex items-center gap-1.5">
+                          <Plus className="w-4.5 h-4.5 text-brand-orange" />
+                          <span>إضافة فني جديد وتعيين تخصصاته وخرائطه التغطوية</span>
+                        </h4>
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-1.5">
+                            <label className="text-xs text-slate-400 font-bold block">اسم الفني الثنائي/الكامل</label>
+                            <input 
+                              type="text"
+                              placeholder="مثال: المهندس سمير عبد الله"
+                              value={newTechName}
+                              onChange={(e) => setNewTechName(e.target.value)}
+                              className="w-full p-2.5 rounded-none bg-[#0a0a0c] border border-white/15 text-white text-xs outline-none focus:border-brand-orange font-bold font-sans"
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="text-xs text-slate-400 font-bold block">رقم هاتف واتساب الفردي للفني</label>
+                            <input 
+                              type="text"
+                              placeholder="مثال: 01023456789"
+                              value={newTechPhone}
+                              onChange={(e) => setNewTechPhone(e.target.value)}
+                              className="w-full p-2.5 rounded-none bg-[#0a0a0c] border border-white/15 text-white text-xs outline-none focus:border-brand-orange text-left font-bold font-sans"
+                              dir="ltr"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Specialty Choice Checklist */}
+                        <div className="space-y-1.5">
+                          <label className="text-xs text-slate-400 font-bold block">أجهزة وتوجيه تخصص الفني المعين <span className="text-[#f97316]">*</span></label>
+                          <div className="flex gap-4 p-3.5 bg-[#0a0a0c] border border-white/10 w-fit">
+                            <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-white select-none">
+                              <input 
+                                type="checkbox"
+                                checked={newTechSpecs.includes("بوتجاز")}
+                                onChange={(e) => {
+                                  const isChecked = e.target.checked;
+                                  setNewTechSpecs(prev => 
+                                    isChecked ? [...prev, "بوتجاز"] : prev.filter(x => x !== "بوتجاز")
+                                  );
+                                }}
+                                className="accent-brand-orange cursor-pointer w-4 h-4"
+                              />
+                              <span>🔧 صيانة وإصلاح البوتجازات</span>
+                            </label>
+
+                            <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-white select-none">
+                              <input 
+                                type="checkbox"
+                                checked={newTechSpecs.includes("سخان غاز")}
+                                onChange={(e) => {
+                                  const isChecked = e.target.checked;
+                                  setNewTechSpecs(prev => 
+                                    isChecked ? [...prev, "سخان غاز"] : prev.filter(x => x !== "سخان غاز")
+                                  );
+                                }}
+                                className="accent-brand-orange cursor-pointer w-4 h-4"
+                              />
+                              <span>🔥 صيانة وإصلاح سخانات الغاز</span>
+                            </label>
+                          </div>
+                        </div>
+
+                        {/* Multi-select active coverage cities */}
+                        <div className="space-y-1.5">
+                          <label className="text-xs text-slate-400 font-bold block">المناطق السكنية الموكل تغطيتها بالكامل لهذا الفني (تحديد متعدد) <span className="text-[#f97316]">*</span></label>
+                          <p className="text-[10px] text-slate-500 pb-1.5">يقوم النظام تلقائياً بتوجيه واستخلاص صيانة هذه الأجهزة بتلك المناطق وتسريحها لهذا الفني مباشرة</p>
+                          
+                          <div className="p-4 bg-[#0a0a0c] border border-white/15 max-h-48 overflow-y-auto grid grid-cols-2 sm:grid-cols-4 gap-3 text-right">
+                            {covAreas.filter(area => area.active).map((area, idx) => {
+                              const isSelected = newTechSelectedCities.includes(area.name);
+                              return (
+                                <label 
+                                  key={idx} 
+                                  className={`flex items-center gap-2.5 p-2 border transition-all text-xs cursor-pointer select-none font-bold ${
+                                    isSelected 
+                                      ? "bg-brand-orange/5 border-brand-orange text-brand-orange" 
+                                      : "bg-[#111114]/50 border-white/5 hover:border-white/15 text-slate-300"
                                   }`}
                                 >
-                                  {p.avail ? "عرض بالمتجر" : "مخفي ومحذوف"}
-                                </button>
-                              </td>
-                              <td className="p-3">
-                                <input 
-                                  type="text"
-                                  value={p.img}
-                                  placeholder="https://..."
-                                  onChange={(e) => {
-                                    const updatedParts = parts.map(x => x.id === p.id ? { ...x, img: e.target.value } : x);
-                                    savePartsToStorage(updatedParts);
-                                  }}
-                                  className="bg-[#0a0a0c] border border-white/15 rounded-none p-1.5 text-[10px] w-36 text-slate-300 outline-none"
-                                />
-                              </td>
-                              <td className="p-3 text-center">
-                                <button 
-                                  onClick={() => handleDeletePart(p.id)}
-                                  className="p-1.5 rounded-none bg-red-500/10 border border-red-500/15 hover:bg-red-500/20 text-red-400 transition-all cursor-pointer inline-flex items-center justify-center"
-                                  title="حذف القطعة فوريا"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                                  <input 
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={(e) => {
+                                      const isChecked = e.target.checked;
+                                      setNewTechSelectedCities(prev => 
+                                        isChecked ? [...prev, area.name] : prev.filter(c => c !== area.name)
+                                      );
+                                    }}
+                                    className="accent-brand-orange cursor-pointer w-4 h-4 shrink-0"
+                                  />
+                                  <div className="leading-tight">
+                                    <div className="text-[11px]">{area.name}</div>
+                                    <div className="text-[8px] text-slate-500 font-sans font-bold">{area.gov}</div>
+                                  </div>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        <div className="pt-2">
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              if (!newTechName.trim() || !newTechPhone.trim()) {
+                                alert("الرجاء كتابة اسم ورقم واتساب فني صحيحين");
+                                return;
+                              }
+                              if (newTechSpecs.length === 0) {
+                                alert("يجب إدخال خيار تخصص صيانة أجهزة واحد على الأعل للفني");
+                                return;
+                              }
+                              if (newTechSelectedCities.length === 0) {
+                                alert("يجب تحديد وتغطية منطقة سكنية واحدة على الأقل للفني");
+                                return;
+                              }
+
+                              const formattedPhone = formatEgyptPhone(newTechPhone);
+                              const newTech: Technician = {
+                                id: Date.now() + Math.floor(Math.random() * 100),
+                                name: newTechName.trim(),
+                                phone: formattedPhone,
+                                city: newTechSelectedCities[0],
+                                cities: newTechSelectedCities,
+                                specialties: newTechSpecs
+                              };
+
+                              const updated = [...technicians, newTech];
+                              saveTechniciansToStorage(updated);
+                              
+                              // Clear inputs
+                              setNewTechName("");
+                              setNewTechPhone("");
+                              setNewTechSelectedCities(["الحوامدية"]);
+                              
+                              triggerToast(`تمت إضافة الفني (${newTech.name}) وتأمينه بـ ${newTechSelectedCities.length} منطقة صيانة وتخصيصه بنظام التوزيع! ⚡`);
+                            }}
+                            className="w-full sm:w-auto py-3 px-8 rounded-none bg-brand-orange hover:bg-brand-orange-dark text-black font-black text-xs transition-colors cursor-pointer"
+                          >
+                            تأكيد إضافة وتسجيل الفني وجدولة جدول التوزيع الآلي ⚡
+                          </button>
+                        </div>
+                      </div>
+
                     </div>
-                  </div>
-
-                  {/* Add New Part Block Form */}
-                  <form onSubmit={handleAddPart} className="bg-[#111114] p-5 rounded-none border border-white/10 space-y-4">
-                    <h4 className="text-white font-black text-sm tracking-tight flex items-center gap-1.5">
-                      <Plus className="w-4 h-4 text-brand-orange" />
-                      <span>إضافة قطعة غيار جديدة للقائمة للمتجر</span>
-                    </h4>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  )}
+                  {false && (
+                    <div className="animate-fadeIn">
                       
-                      <div className="space-y-1.5">
-                        <label className="text-xs text-slate-400 font-bold block">اسم قطعة الغيار</label>
-                        <input 
-                          type="text"
-                          placeholder="مثال: ترموكوبل سخان إيطالي"
-                          value={newPartName}
-                          onChange={(e) => setNewPartName(e.target.value)}
-                          className="w-full p-2.5 rounded-none bg-[#0a0a0c] border border-white/15 text-white text-xs outline-none focus:border-brand-orange font-bold"
-                        />
+                      {/* Active Technicians Geographical Board List */}
+                      <div className="bg-[#111114] p-5 rounded-none border border-white/10 space-y-4">
+                        <h4 className="text-white font-black text-sm flex items-center justify-between gap-2">
+                          <span>🛠️ لوحة إدارة الفنيين والمسؤوليات التوزيعية</span>
+                          <span className="text-[10px] text-slate-400">سجل فنيين لتسريح طلبات الصيانة والمبيعات بمساراتهم ذاتياً</span>
+                        </h4>
+
+                        <div className="overflow-x-auto rounded-none border border-white/10">
+                          <table className="w-full text-right text-xs table-auto min-w-[500px]">
+                            <thead className="bg-[#0a0a0c] text-slate-400 font-bold text-[10px]">
+                              <tr>
+                                <th className="p-3.5">اسم الفني</th>
+                                <th className="p-3.5">رقم هاتف الواتس آب لـ التلقي المباشر</th>
+                                <th className="p-3.5">المنطقة الجغرافية الموكل إليها</th>
+                                <th className="p-3.5 text-center">الأمان والحذف</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/10">
+                              {technicians.length === 0 ? (
+                                <tr>
+                                  <td colSpan={4} className="p-8 text-center text-slate-500 text-xs">
+                                    لا يوجد فنيين معرفين، جميع طلبات الصيانة والقطع يتم توجيهها تلقائياً إلى رقم المسؤول العام.
+                                  </td>
+                                </tr>
+                              ) : (
+                                technicians.map((t) => (
+                                  <tr key={t.id} className="hover:bg-white/[0.02] transition-colors">
+                                    <td className="p-3">
+                                      <div className="flex items-center gap-1.5 w-full">
+                                        <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                                        <input 
+                                          type="text"
+                                          value={t.name}
+                                          onChange={(e) => {
+                                            const updated = technicians.map(x => x.id === t.id ? { ...x, name: e.target.value } : x);
+                                            saveTechniciansToStorage(updated);
+                                          }}
+                                          className="bg-[#0a0a0c] border border-white/10 focus:border-brand-orange p-2 text-xs w-full text-white font-bold outline-none rounded-none transition-all"
+                                          placeholder="اسم الفني"
+                                        />
+                                      </div>
+                                    </td>
+                                    <td className="p-3">
+                                      <input 
+                                        type="text"
+                                        value={t.phone}
+                                        onChange={(e) => {
+                                          const updated = technicians.map(x => x.id === t.id ? { ...x, phone: e.target.value } : x);
+                                          saveTechniciansToStorage(updated);
+                                        }}
+                                        className="bg-[#0a0a0c] border border-white/10 focus:border-brand-orange p-2 text-xs w-full text-slate-300 font-mono text-left font-bold outline-none rounded-none transition-all"
+                                        dir="ltr"
+                                        placeholder="رقم الواتساب"
+                                      />
+                                    </td>
+                                    <td className="p-3">
+                                      <select 
+                                        value={t.city}
+                                        onChange={(e) => {
+                                          const updated = technicians.map(x => x.id === t.id ? { ...x, city: e.target.value } : x);
+                                          saveTechniciansToStorage(updated);
+                                          triggerToast(`تم تحديث منطقة الفني ${t.name} تلقائياً إلى ${e.target.value}`);
+                                        }}
+                                        className="bg-[#0a0a0c] border border-white/10 focus:border-brand-orange p-2 text-xs text-brand-orange font-black w-full outline-none rounded-none transition-all"
+                                      >
+                                        {covAreas.map((area, cIdx) => (
+                                          <option key={cIdx} value={area.name}>{area.name}</option>
+                                        ))}
+                                      </select>
+                                    </td>
+                                    <td className="p-3 text-center">
+                                      {deleteConfirmId === t.id ? (
+                                        <div className="flex items-center gap-1.5 justify-center">
+                                          <button 
+                                            onClick={() => {
+                                              const updated = technicians.filter(x => x.id !== t.id);
+                                              saveTechniciansToStorage(updated);
+                                              setDeleteConfirmId(null);
+                                              triggerToast(`تم فصل وإلغاء تثبيت الفني ${t.name} بنجاح`);
+                                            }}
+                                            className="py-1.5 px-3 rounded-none bg-red-600 hover:bg-red-700 text-white font-extrabold text-[10px] cursor-pointer transition-all shrink-0"
+                                          >
+                                            تأكيد الفصل
+                                          </button>
+                                          <button 
+                                            onClick={() => setDeleteConfirmId(null)}
+                                            className="py-1.5 px-2 bg-white/10 hover:bg-white/15 text-slate-300 font-bold text-[10px] cursor-pointer transition-all shrink-0"
+                                          >
+                                            إلغاء
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <button 
+                                          onClick={() => setDeleteConfirmId(t.id)}
+                                          className="py-1.5 px-2.5 rounded-none bg-red-500/10 hover:bg-red-500 hover:text-white border border-red-500/15 text-red-400 transition-all text-[11px] cursor-pointer inline-flex items-center gap-1"
+                                          title="فصل وإلغاء تعيين الفني"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                          <span>فصل الفني</span>
+                                        </button>
+                                      )}
+                                    </td>
+                                  </tr>
+                                ))
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
 
-                      <div className="space-y-1.5">
-                        <label className="text-xs text-slate-400 font-bold block">سعر التجزئة المالي (ج.م)</label>
-                        <input 
-                          type="number"
-                          placeholder="الرجاء كتابة السعر بالأرقام"
-                          value={newPartPrice}
-                          onChange={(e) => setNewPartPrice(e.target.value)}
-                          className="w-full p-2.5 rounded-none bg-[#0a0a0c] border border-white/15 text-white text-xs outline-none focus:border-brand-orange font-bold"
-                        />
-                      </div>
+                      {/* Add New Technician Block Form */}
+                      <div className="bg-[#111114] p-5 rounded-none border border-white/10 space-y-4">
+                        <h4 className="text-white font-black text-sm tracking-tight flex items-center gap-1.5">
+                          <Plus className="w-4 h-4 text-brand-orange" />
+                          <span>إضافة فني جديد لمنظومة التوزيع الآلي للمناطق</span>
+                        </h4>
+                        <p className="text-[11px] text-slate-400 leading-relaxed">
+                          عند إضافة فني مخصص لمنطقة ما، سيتم تلقائياً إرسال رسائل شراء قطع الغيار أو طلبات صيانة تلك المنطقة بالواتساب إلى رقمه مباشرة، وفي حال عدم وجود فني موكل للمنطقة سيتم التوجيه تلقائياً للمدير العام.
+                        </p>
 
-                      <div className="space-y-1.5">
-                        <label className="text-xs text-slate-400 font-bold block">فئة تصنيف القطعة</label>
-                        <select 
-                          value={newPartCat}
-                          onChange={(e) => setNewPartCat(e.target.value as PartCategory)}
-                          className="w-full p-2.5 rounded-none bg-[#0a0a0c] border border-white/15 text-white text-xs outline-none focus:border-brand-orange"
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                          <div className="space-y-1.5">
+                            <label className="text-xs text-slate-400 font-bold block">اسم الفني الثنائي/الكامل</label>
+                            <input 
+                              type="text"
+                              placeholder="مثال: م. سمير إبراهيم"
+                              value={newTechName}
+                              onChange={(e) => setNewTechName(e.target.value)}
+                              className="w-full p-2.5 rounded-none bg-[#0a0a0c] border border-white/15 text-white text-xs outline-none focus:border-brand-orange font-bold"
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="text-xs text-slate-400 font-bold block">رقم واتس آب الفني (مع كود الدولة دون +)</label>
+                            <input 
+                              type="text"
+                              placeholder="مثال: 201022334455"
+                              value={newTechPhone}
+                              onChange={(e) => setNewTechPhone(e.target.value)}
+                              className="w-full p-2.5 rounded-none bg-[#0a0a0c] border border-white/15 text-white text-xs outline-none focus:border-brand-orange text-left font-bold"
+                              dir="ltr"
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="text-xs text-slate-400 font-bold block">منطقة الفني (المدينة/المنطقة)</label>
+                            <select 
+                              value={newTechCity}
+                              onChange={(e) => setNewTechCity(e.target.value)}
+                              className="w-full p-2.5 rounded-none bg-[#0a0a0c] border border-white/15 text-white text-xs outline-none focus:border-brand-orange font-bold font-sans"
+                            >
+                              <option value="" disabled>اختر منطقة الفني</option>
+                              {covAreas.map((area, idx) => (
+                                <option key={idx} value={area.name}>{area.name} {area.active ? "" : "(موقوفة مؤقتاً)"}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
+                        <button 
+                          onClick={() => {
+                            if (!newTechName || !newTechPhone) {
+                              alert("الرجاء إدخال اسم فني ورقم واتساب صحيحين");
+                              return;
+                            }
+                            const formattedPhone = formatEgyptPhone(newTechPhone);
+                            const newTech: Technician = {
+                              id: Date.now() + Math.floor(Math.random() * 100),
+                              name: newTechName,
+                              phone: formattedPhone,
+                              city: newTechCity
+                            };
+                            const updated = [...technicians, newTech];
+                            saveTechniciansToStorage(updated);
+                            setNewTechName("");
+                            setNewTechPhone("");
+                            triggerToast(`تمت إضافة الفني ${newTech.name} وتخصيص منطقة ${newTech.city} له بنجاح برقم ${formattedPhone}`);
+                          }}
+                          className="w-full sm:w-auto py-2.5 px-6 rounded-none bg-brand-orange hover:bg-brand-orange-dark text-black font-black text-xs transition-colors cursor-pointer"
                         >
-                          <option value="cooker">بوتجاز طهيي</option>
-                          <option value="heater">سخان غاز</option>
-                        </select>
+                          إضافة الفني وجدولة جدول التوزيع الآلي ⚡
+                        </button>
                       </div>
 
                     </div>
+                  )}
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-1.5">
-                        <label className="text-xs text-slate-400 font-bold block">رابط الصورة (اختياري)</label>
-                        <input 
-                          type="text"
-                          placeholder="https://example.com/item.jpg"
-                          value={newPartImg}
-                          onChange={(e) => setNewPartImg(e.target.value)}
-                          className="w-full p-2.5 rounded-none bg-[#0a0a0c] border border-white/15 text-white text-xs outline-none focus:border-brand-orange text-left"
-                          dir="ltr"
-                        />
+                  {/* SUBTAB 4: AREAS MANAGEMENT */}
+                  {adminSubTab === "areas" && (
+                    <div className="space-y-8 animate-fadeIn">
+                      
+                      {/* Interactive Geo-Distribution Matrix / Table */}
+                      <div className="bg-[#111114] p-5 rounded-none border border-white/10 space-y-4 font-sans text-right" dir="rtl">
+                        <div className="flex flex-col sm:flex-row items-baseline justify-between border-b border-white/5 pb-3">
+                          <h4 className="text-white font-black text-sm flex items-center gap-1.5">
+                            <span className="text-brand-orange">📋</span>
+                            <span>جدول توزيع مهام ومناطق الصيانة الفعلي بين الفنيين (دقة جغرافية وتوزيع متعدد)</span>
+                          </h4>
+                          <span className="text-[10px] text-slate-400">تحكم وراجع التغطية المزدوجة والمشتركة للفنيين لكل مدينة أو قرية بنقرة واحدة</span>
+                        </div>
+
+                        <p className="text-xs text-slate-450 leading-relaxed">
+                          يوضح الجدول التالي جميع المناطق السكنية المتاحة بالنظام، وحالة تغطيتها، والفنيين المكلفين بها حالياً. يمكنك <strong>إسناد فني إضافي</strong> أو <strong>إلغاء تغطية فني</strong> من أي منطقة مباشرة لتفعيل التوزيع والجدولة التلقائية الذكية.
+                        </p>
+
+                        <div className="overflow-x-auto rounded-none border border-white/10">
+                          <table className="w-full text-right text-xs table-auto min-w-[650px]">
+                            <thead className="bg-[#0a0a0c] text-slate-400 font-bold text-[10px]">
+                              <tr>
+                                <th className="p-3">اسم المنطقة</th>
+                                <th className="p-3">المحافظة</th>
+                                <th className="p-3">حالة التغطية الحالية</th>
+                                <th className="p-3 text-brand-orange">الفنيين المسؤولين (تغطية متعددة)</th>
+                                <th className="p-3 text-center">إضافة فني للمنطقة</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/10 font-bold text-slate-300">
+                              {covAreas.map((area, areaIdx) => {
+                                // Find technicians active in this area (either in city or in cities)
+                                const assignedTechsList = technicians.filter(tech => {
+                                  const cities = Array.isArray(tech.cities) ? tech.cities : (tech.city ? [tech.city] : []);
+                                  return cities.some(c => isCityMatch(c, area.name));
+                                });
+
+                                // Find technicians not yet assigned to this area
+                                const unassignedTechsList = technicians.filter(tech => {
+                                  const cities = Array.isArray(tech.cities) ? tech.cities : (tech.city ? [tech.city] : []);
+                                  return !cities.some(c => isCityMatch(c, area.name));
+                                });
+
+                                return (
+                                  <tr key={areaIdx} className="hover:bg-white/[0.01] transition-colors">
+                                    <td className="p-3">
+                                      <span className="text-white font-black">{area.name}</span>
+                                      {!area.active && <span className="mr-2 text-[9px] bg-red-500/15 text-red-400 px-1 py-0.5 font-bold">مغلقة مؤقتاً</span>}
+                                    </td>
+                                    <td className="p-3 text-slate-400">{area.gov || "الجيزة"}</td>
+                                    <td className="p-3">
+                                      {assignedTechsList.length > 0 ? (
+                                        <span className="px-2 py-0.5 text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                          مغطاة بالكامل ✓ ({assignedTechsList.length} فنيين)
+                                        </span>
+                                      ) : (
+                                        <span className="px-2 py-0.5 text-[9px] bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                                          تحت المتابعة الإدارية (تلقائي المسؤول العام)
+                                        </span>
+                                      )}
+                                    </td>
+                                    <td className="p-3">
+                                      {assignedTechsList.length === 0 ? (
+                                        <span className="text-[11px] text-slate-500 font-normal">لا يوجد فنيين حالياً لقريتك/مدينتك</span>
+                                      ) : (
+                                        <div className="flex flex-wrap gap-1.5">
+                                          {assignedTechsList.map(tech => {
+                                            const isSelectedForEdit = areasTabEditingTechId === tech.id;
+                                            return (
+                                              <div 
+                                                key={tech.id} 
+                                                className={`inline-flex items-center gap-1.5 p-1 px-1.5 text-[10px] border transition-all ${
+                                                  isSelectedForEdit 
+                                                    ? "bg-brand-orange/20 border-brand-orange text-white" 
+                                                    : "bg-[#1c1c22] border-white/10 text-slate-300 hover:border-white/30"
+                                                }`}
+                                              >
+                                                <button
+                                                  type="button"
+                                                  title="تعديل هذا الفني وتخصيصه فوراً"
+                                                  onClick={() => {
+                                                    if (isSelectedForEdit) {
+                                                      setAreasTabEditingTechId(null);
+                                                    } else {
+                                                      setAreasTabEditingTechId(tech.id);
+                                                      setEditTechName(tech.name);
+                                                      setEditTechPhone(tech.phone);
+                                                      setEditTechSpecs(tech.specialties || ["بوتجاز", "سخان غاز"]);
+                                                      setEditTechCities(tech.cities || [tech.city || "طموة"]);
+                                                    }
+                                                  }}
+                                                  className="hover:text-brand-orange font-bold text-slate-300 mr-0.5 cursor-pointer text-xs"
+                                                >
+                                                  ✍️
+                                                </button>
+                                                <span className="text-white">👤 {tech.name}</span>
+                                                <button
+                                                  type="button"
+                                                  title="إلغاء التغطية لهذه المنطقة"
+                                                  onClick={() => {
+                                                    // Remove area.name from tech's cities
+                                                    const currentCities = Array.isArray(tech.cities) ? tech.cities : (tech.city ? [tech.city] : []);
+                                                    const updatedCities = currentCities.filter(c => !isCityMatch(c, area.name));
+                                                    const updatedTechs = technicians.map(t => t.id === tech.id ? {
+                                                      ...t,
+                                                      cities: updatedCities,
+                                                      city: updatedCities[0] || ""
+                                                    } : t);
+                                                    saveTechniciansToStorage(updatedTechs);
+                                                    triggerToast(`تم إزالة تغطية الفني (${tech.name}) لمنطقة ${area.name}`);
+                                                  }}
+                                                  className="text-red-450 hover:text-red-500 font-bold mr-1 hover:bg-white/5 w-4 h-4 rounded-none flex items-center justify-center shrink-0 cursor-pointer text-xs"
+                                                >
+                                                  ×
+                                                </button>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+                                    </td>
+                                    <td className="p-3 text-center">
+                                      {unassignedTechsList.length === 0 ? (
+                                        <span className="text-[10px] text-slate-600 font-medium">جميع الفنيين يغطون هذه المنطقة</span>
+                                      ) : (
+                                        <select
+                                          value=""
+                                          onChange={(e) => {
+                                            const techId = Number(e.target.value);
+                                            if (!techId) return;
+                                            
+                                            const tech = technicians.find(t => t.id === techId);
+                                            if (!tech) return;
+
+                                            const currentCities = Array.isArray(tech.cities) ? tech.cities : (tech.city ? [tech.city] : []);
+                                            if (!currentCities.some(c => isCityMatch(c, area.name))) {
+                                              const updatedCities = [...currentCities, area.name];
+                                              const updatedTechs = technicians.map(t => t.id === techId ? {
+                                                ...t,
+                                                cities: updatedCities,
+                                                city: updatedCities[0] || area.name
+                                              } : t);
+                                              saveTechniciansToStorage(updatedTechs);
+                                              triggerToast(`تم إدراج منطقة ${area.name} لتغطية الفني ${tech.name} بنجاح! ⚡`);
+                                            }
+                                          }}
+                                          className="p-1 px-1.5 rounded-none bg-[#0a0a0c] border border-white/15 text-slate-300 text-[10px] sm:w-40 font-bold outline-none focus:border-brand-orange cursor-pointer"
+                                        >
+                                          <option value="">+ اختر فني للإسناد</option>
+                                          {unassignedTechsList.map(t => (
+                                            <option key={t.id} value={t.id}>{t.name}</option>
+                                          ))}
+                                        </select>
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Interactive Technician Editing Drawer on Areas Page */}
+                        {areasTabEditingTechId !== null && (() => {
+                          const techToEdit = technicians.find(t => t.id === areasTabEditingTechId);
+                          if (!techToEdit) return null;
+                          return (
+                            <div className="bg-[#15151a] p-5 rounded-none border border-brand-orange text-right space-y-4 animate-fadeIn mt-4 relative" dir="rtl">
+                              <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
+                                <h4 className="text-white font-black text-sm flex items-center gap-2">
+                                  <span className="text-brand-orange text-lg">⚙️</span>
+                                  <span>توجيه وتعديل تخصص ومناطق الفني: <strong className="text-brand-orange">{techToEdit.name}</strong></span>
+                                </h4>
+                                <button 
+                                  onClick={() => setAreasTabEditingTechId(null)}
+                                  className="text-slate-400 hover:text-white font-bold text-sm bg-white/5 hover:bg-white/10 w-6 h-6 flex items-center justify-center cursor-pointer border border-white/10"
+                                >
+                                  ×
+                                </button>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                {/* Section 1: Tech Details & Specialties */}
+                                <div className="space-y-4 bg-[#0d0d10] p-4 border border-white/5">
+                                  <div className="flex items-center gap-2 border-b border-white/5 pb-1.5 label-section">
+                                    <span className="text-[11px] text-slate-300 font-black">⚙️ ضبط التخصص والهوية</span>
+                                  </div>
+                                  
+                                  <div className="space-y-1">
+                                    <label className="text-[10px] text-slate-400 block font-bold">اسم المهندس/الفني</label>
+                                    <input 
+                                      type="text"
+                                      value={editTechName}
+                                      onChange={(e) => setEditTechName(e.target.value)}
+                                      className="w-full p-2 rounded-none bg-[#111114] border border-white/15 text-white text-xs outline-none focus:border-brand-orange font-bold font-sans"
+                                    />
+                                  </div>
+
+                                  <div className="space-y-1">
+                                    <label className="text-[10px] text-slate-400 block font-bold">رقم هاتف الواتساب</label>
+                                    <input 
+                                      type="text"
+                                      value={editTechPhone}
+                                      onChange={(e) => setEditTechPhone(e.target.value)}
+                                      className="w-full p-2 rounded-none bg-[#111114] border border-white/15 text-white text-xs outline-none focus:border-brand-orange font-bold font-sans text-left"
+                                      dir="ltr"
+                                    />
+                                  </div>
+
+                                  <div className="space-y-1.5 pt-1">
+                                    <label className="text-[10px] text-slate-400 block font-bold">تغيير تخصص الأجهزة <span className="text-brand-orange">*</span></label>
+                                    <p className="text-[9px] text-slate-500 pb-1">تحديد الأجهزة التي يحق للفني استلام بلاغات أعطالها لتلقي التوجيه الذكي</p>
+                                    <div className="flex flex-col gap-2 p-2.5 bg-[#111114] border border-white/10 rounded-none w-full">
+                                      <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-white select-none">
+                                        <input 
+                                          type="checkbox"
+                                          checked={editTechSpecs.includes("بوتجاز")}
+                                          onChange={(e) => {
+                                            const isChecked = e.target.checked;
+                                            setEditTechSpecs(prev => 
+                                              isChecked ? [...prev, "بوتجاز"] : prev.filter(x => x !== "بوتجاز")
+                                            );
+                                          }}
+                                          className="accent-brand-orange cursor-pointer w-4 h-4"
+                                        />
+                                        <span>صيانة بوتجازات 🍳</span>
+                                      </label>
+                                      <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-white select-none">
+                                        <input 
+                                          type="checkbox"
+                                          checked={editTechSpecs.includes("سخان غاز")}
+                                          onChange={(e) => {
+                                            const isChecked = e.target.checked;
+                                            setEditTechSpecs(prev => 
+                                              isChecked ? [...prev, "سخان غاز"] : prev.filter(x => x !== "سخان غاز")
+                                            );
+                                          }}
+                                          className="accent-brand-orange cursor-pointer w-4 h-4"
+                                        />
+                                        <span>صيانة سخانات غاز 🔥</span>
+                                      </label>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Section 2 & 3: Coverage Cities Checkbox Board */}
+                                <div className="md:col-span-2 space-y-3 bg-[#0d0d10] p-4 border border-white/5 flex flex-col justify-between">
+                                  <div className="space-y-1">
+                                    <div className="flex items-baseline justify-between border-b border-white/5 pb-1.5">
+                                      <h5 className="text-[11px] text-slate-300 font-black">📍 تعيين وتحديد كتل التغطية الجغرافية للفني ({editTechCities.length} مناطق موكلة إليه)</h5>
+                                      <span className="text-[9px] text-brand-orange font-bold font-sans">يمكن تحديد أكثر من منطقة في آن واحد</span>
+                                    </div>
+                                    <p className="text-[10px] text-slate-500 leading-relaxed pb-1">
+                                      برجاء وضع علامة على جميع المناطق والمحافظات المشمولة في نطاق الخدمة الميدانية المعتمدة لهذا الفني. سيقوم الروبوت بتوجيه أوردرات الصيانة الواردة لهذه المناطق إليه آلياً.
+                                    </p>
+                                  </div>
+
+                                  <div className="p-3 bg-[#111114] border border-white/10 max-h-56 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                    {covAreas.filter(area => area.active).map((area, idx) => {
+                                      const isSelected = editTechCities.includes(area.name);
+                                      return (
+                                        <label 
+                                          key={idx} 
+                                          className={`flex items-center gap-2.5 p-2 border transition-all text-xs cursor-pointer select-none font-bold ${
+                                            isSelected 
+                                              ? "bg-brand-orange/10 border-brand-orange text-white" 
+                                              : "bg-[#0a0a0c] border-white/10 text-slate-400 hover:text-white hover:border-white/20"
+                                          }`}
+                                        >
+                                          <input 
+                                            type="checkbox"
+                                            checked={isSelected}
+                                            onChange={(e) => {
+                                              const isChecked = e.target.checked;
+                                              setEditTechCities(prev => 
+                                                isChecked ? [...prev, area.name] : prev.filter(c => c !== area.name)
+                                              );
+                                            }}
+                                            className="accent-brand-orange cursor-pointer w-3.5 h-3.5"
+                                          />
+                                          <div className="flex flex-col text-right">
+                                            <span>{area.name}</span>
+                                            <span className="text-[8px] text-slate-500 font-sans">محافظة {area.gov || "الجيزة"}</span>
+                                          </div>
+                                        </label>
+                                      );
+                                    })}
+                                  </div>
+
+                                  <div className="flex gap-2.5 pt-3.5 border-t border-white/5 justify-end">
+                                    <button 
+                                      onClick={() => {
+                                        if (!editTechName.trim() || !editTechPhone.trim()) {
+                                          alert("الرجاء إدخال بيانات صحيحة للفني أولاً");
+                                          return;
+                                        }
+                                        if (editTechSpecs.length === 0) {
+                                          alert("يجب اختيار تخصص صيانة واحد على الأقل للمهندس");
+                                          return;
+                                        }
+                                        if (editTechCities.length === 0) {
+                                          alert("يجب اختيار وتوجيه منطقة سكنية واحدة على الأقل للفني");
+                                          return;
+                                        }
+
+                                        const formattedPhone = formatEgyptPhone(editTechPhone);
+                                        const updatedTechs = technicians.map(t => t.id === areasTabEditingTechId ? {
+                                          ...t,
+                                          name: editTechName.trim(),
+                                          phone: formattedPhone,
+                                          city: editTechCities[0],
+                                          cities: editTechCities,
+                                          specialties: editTechSpecs
+                                        } : t);
+
+                                        saveTechniciansToStorage(updatedTechs);
+                                        setAreasTabEditingTechId(null);
+                                        triggerToast(`✓ تم تحديث تخصص الفني (${editTechName}) وتوجيهه لـ ${editTechCities.length} مناطق تغطية بنجاح!`);
+                                      }}
+                                      className="py-2 px-5 bg-brand-orange hover:bg-brand-orange-dark text-black text-[11px] font-black transition-all cursor-pointer rounded-none border border-transparent shadow font-sans"
+                                    >
+                                      حفظ التعديلات والتوجيه المزدوج 💾
+                                    </button>
+                                    <button 
+                                      type="button"
+                                      onClick={() => setAreasTabEditingTechId(null)}
+                                      className="py-2 px-4 bg-white/5 hover:bg-white/10 text-slate-300 text-[11px] font-bold transition-all cursor-pointer rounded-none border border-white/5 font-sans"
+                                    >
+                                      إلغاء التعديل
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
 
-                      <div className="space-y-1.5">
-                        <label className="text-xs text-slate-400 font-bold block">وصف مختصر للقطعة</label>
-                        <input 
-                          type="text"
-                          placeholder="مثال: يمنع تسريب الغاز في حالة انطفاء الشعلة المفاجئ..."
-                          value={newPartDesc}
-                          onChange={(e) => setNewPartDesc(e.target.value)}
-                          className="w-full p-2.5 rounded-none bg-[#0a0a0c] border border-white/15 text-white text-xs outline-none focus:border-brand-orange"
-                        />
+                      {/* Active Areas Geographical Control Board */}
+                      <div className="bg-[#111114] p-5 rounded-none border border-white/10 space-y-4 font-sans">
+                        <div className="flex flex-col sm:flex-row items-baseline justify-between gap-2 border-b border-white/5 pb-3">
+                          <h4 className="text-white font-black text-sm">📍 لوحة التحكم بنشاط نطاق الخدمات وقفل/فتح التغطية</h4>
+                          <span className="text-[10px] text-slate-400">تحكم بوقف أو تفعيل استقبال طلبات الصيانة والمبيعات بقرى ومراكز الجيزة</span>
+                        </div>
+
+                        <div className="overflow-x-auto rounded-none border border-white/10">
+                          <table className="w-full text-right text-xs table-auto min-w-[500px]">
+                            <thead className="bg-[#0a0a0c] text-slate-400 font-bold text-[10px]">
+                              <tr>
+                                <th className="p-3.5 font-bold">اسم المنطقة / المركز السكني</th>
+                                <th className="p-3.5 text-center font-bold">حالة الخدمة وتلقي الطلبات</th>
+                                <th className="p-3.5 text-center font-bold">التحكم والخيارات</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/10 font-bold text-slate-300">
+                              {covAreas.map((area, idx) => (
+                                <tr key={idx} className="hover:bg-white/[0.02] transition-colors">
+                                  <td className="p-3 font-bold text-white">
+                                    <input 
+                                      type="text"
+                                      value={area.name}
+                                      onChange={(e) => {
+                                        const updated = covAreas.map((x, i) => i === idx ? { ...x, name: e.target.value } : x);
+                                        saveCovAreasToStorage(updated);
+                                      }}
+                                      className="bg-transparent border-0 border-b border-white/10 focus:border-brand-orange outline-none p-1 text-xs w-full text-white font-bold"
+                                      placeholder="اسم المنطقة"
+                                    />
+                                  </td>
+                                  <td className="p-3 text-center">
+                                    <button 
+                                      onClick={() => {
+                                        const updated = covAreas.map((x, i) => i === idx ? { ...x, active: !x.active } : x);
+                                        saveCovAreasToStorage(updated);
+                                        triggerToast(updated[idx].active ? `تم تفعيل الخدمة واستقبال الطلبات في ${area.name}` : `تم إيقاف الخدمة وتعطيل الطلبات في ${area.name}`);
+                                      }}
+                                      className={`px-4 py-1.5 font-bold text-[10px] uppercase transition-all rounded-none border leading-none cursor-pointer ${
+                                        area.active 
+                                          ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20" 
+                                          : "bg-red-500/10 border-red-500/25 text-red-100 line-through hover:bg-red-500/20"
+                                      }`}
+                                    >
+                                      {area.active ? "● مغطاة ونشطة (مفتوحة)" : "○ موقوفة مؤقتاً (مغلقة)"}
+                                    </button>
+                                  </td>
+                                  <td className="p-3 text-center">
+                                    <button 
+                                      onClick={() => {
+                                        setCustomConfirm({
+                                          show: true,
+                                          title: "حذف منطقة جغرافية",
+                                          message: `هل أنت متأكد من حذف المنطقة السكنية (${area.name}) نهائياً من قائمة الفروع بالمنظومة؟ سيؤثر هذا فوراً على خيارات التغطية المعروضة للعملاء والفنيين.`,
+                                          onConfirm: () => {
+                                            const updated = covAreas.filter((_, i) => i !== idx);
+                                            saveCovAreasToStorage(updated);
+                                            triggerToast("تم حذف وإزالة المنطقة بنجاح 🗑️");
+                                            setCustomConfirm(null);
+                                          }
+                                        });
+                                      }}
+                                      className="p-1.5 rounded-none bg-red-500/10 border border-red-500/15 hover:bg-red-500 hover:text-white text-red-400 transition-all cursor-pointer inline-flex items-center justify-center mx-auto"
+                                      title="حذف المنطقة نهائياً"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
+
+                      {/* Add New Area Block Form */}
+                      <div className="bg-[#111114] p-5 rounded-none border border-white/10 space-y-4">
+                        <h4 className="text-white font-black text-sm tracking-tight flex items-center gap-1.5">
+                          <Plus className="w-4 h-4 text-brand-orange" />
+                          <span>إضافة منطقة تغطية جديدة بالنظام الجغرافي</span>
+                        </h4>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end max-w-2xl text-right">
+                          <div className="space-y-1.5 w-full">
+                            <label className="text-xs text-slate-400 font-bold block">المحافظة التابع لها المنطقة</label>
+                            <select 
+                              value={newAreaGov}
+                              onChange={(e) => setNewAreaGov(e.target.value)}
+                              className="w-full p-2.5 rounded-none bg-[#0a0a0c] border border-white/15 text-white text-xs outline-none focus:border-brand-orange font-bold font-sans"
+                            >
+                              {Object.keys(egyptData).map((govName) => (
+                                <option key={govName} value={govName}>{govName}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div className="space-y-1.5 w-full">
+                            <label className="text-xs text-slate-400 font-bold block">اسم الحي / المدينة / المنطقة الجديدة</label>
+                            <input 
+                              type="text"
+                              placeholder="مثال: منشأة دهشور، العياط، الحوامدية..."
+                              value={newAreaName}
+                              onChange={(e) => setNewAreaName(e.target.value)}
+                              className="w-full p-2.5 rounded-none bg-[#0a0a0c] border border-white/15 text-white text-xs outline-none focus:border-brand-orange font-bold font-sans"
+                            />
+                          </div>
+
+                          <button 
+                            type="button"
+                            onClick={() => {
+                              if (!newAreaName.trim()) {
+                                alert("الرجاء كتابة اسم المنطقة بشكل صحيح أولاً");
+                                return;
+                              }
+                              
+                              if (covAreas.some(x => x.name.trim() === newAreaName.trim())) {
+                                alert("هذه المنطقة مضافة بالفعل بالمنظومة");
+                                return;
+                              }
+
+                              const updated = [...covAreas, { name: newAreaName.trim(), active: true, gov: newAreaGov }];
+                              saveCovAreasToStorage(updated);
+                              setNewAreaName("");
+                              triggerToast(`تمت إضافة المنطقة الجديدة (${newAreaName}) التابعة لمحافظة ${newAreaGov} وتفعيل تغطيتها!`);
+                            }}
+                            className="w-full py-2.5 px-6 rounded-none bg-brand-orange hover:bg-brand-orange-dark text-black font-black text-xs transition-colors cursor-pointer block text-center"
+                          >
+                            تأكيد إضافة المنطقة نشطة ⚡
+                          </button>
+                        </div>
+                      </div>
+
                     </div>
-
-                    <button 
-                      type="submit"
-                      className="w-full sm:w-auto py-3 px-6 rounded-none bg-brand-orange hover:bg-brand-orange-dark text-black font-black text-xs transition-colors cursor-pointer"
-                    >
-                      تأكيد وبث قطعة الغيار الجديدة بالمتجر لقائمة العملاء
-                    </button>
-
-                  </form>
+                  )}
 
                 </div>
               )}
@@ -1886,25 +4690,25 @@ ${orderItemsList}
                       />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                       <input 
                         type="tel"
                         placeholder="رقم هاتفك للتواصل *"
                         value={checkPhone}
                         onChange={(e) => setCheckPhone(e.target.value)}
-                        className="w-full py-2.5 px-3 rounded-none bg-[#111114] border border-white/15 text-white text-xs outline-none focus:border-brand-orange text-left"
+                        className="w-full py-2.5 px-3 rounded-none bg-[#111114] border border-white/15 text-white text-xs outline-none focus:border-brand-orange text-left font-bold"
                         dir="ltr"
                       />
-                      <select 
-                        value={checkCity}
-                        onChange={(e) => setCheckCity(e.target.value)}
-                        className="w-full py-2.5 px-3 rounded-none bg-[#111114] border border-white/15 text-white text-xs outline-none focus:border-brand-orange"
-                      >
-                        <option value="" disabled>المدينة/القرية بالجيرة *</option>
-                        {COV_AREAS.map((city, cIdx) => (
-                          <option key={cIdx} value={city}>{city}</option>
-                        ))}
-                      </select>
+                        <select 
+                          value={checkCity}
+                          onChange={(e) => setCheckCity(e.target.value)}
+                          className="w-full py-2.5 px-3 rounded-none bg-[#111114] border border-white/15 text-white text-xs outline-none focus:border-brand-orange font-bold font-sans animate-fadeIn"
+                        >
+                          <option value="" disabled>اختر منطقتك السكنية</option>
+                          {covAreas.filter(a => a.active).map((area, idx) => (
+                            <option key={idx} value={area.name}>{area.name}</option>
+                          ))}
+                        </select>
                     </div>
 
                     <div className="space-y-1.5">
@@ -1927,7 +4731,7 @@ ${orderItemsList}
                   {/* Checkout Button */}
                   <button 
                     onClick={handleCheckout}
-                    disabled={isCheckingOut || !checkName || !checkPhone || !checkCity || !checkAddr}
+                    disabled={isCheckingOut || !checkName || !checkPhone || !checkAddr}
                     className="w-full py-3.5 px-4 rounded-none bg-brand-orange disabled:bg-neutral-800 disabled:text-neutral-500 text-black font-black text-sm transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
                   >
                     {isCheckingOut ? (
@@ -2135,6 +4939,75 @@ ${orderItemsList}
             <span>✓</span>
             <span>{adminToast}</span>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* CUSTOM CONFIRMATION DIALOG MODAL (Saves us from blocked window.confirm inside iframe) */}
+      <AnimatePresence>
+        {customConfirm && customConfirm.show && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="w-full max-w-md bg-[#0e0e12] border border-red-500/30 p-6 text-right relative shadow-2xl"
+            >
+              <div className="flex items-center gap-3 border-b border-white/10 pb-3 mb-4">
+                <span className="text-xl">⚠️</span>
+                <h3 className="text-white font-black text-sm">{customConfirm.title}</h3>
+              </div>
+              <p className="text-xs text-slate-300 font-bold leading-relaxed mb-6">
+                {customConfirm.message}
+              </p>
+              <div className="flex flex-row-reverse gap-3">
+                <button 
+                  type="button"
+                  onClick={() => customConfirm.onConfirm()}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-none cursor-pointer transition-colors"
+                >
+                  نعم، تأكيد الحذف 🗑️
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setCustomConfirm(null)}
+                  className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-slate-300 font-bold text-xs rounded-none cursor-pointer transition-colors"
+                >
+                  تراجع وإلغاء ❌
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* CUSTOM ALERT DIALOG MODAL (Saves us from blocked window.alert inside iframe) */}
+      <AnimatePresence>
+        {customAlert && customAlert.show && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="w-full max-w-md bg-[#0e0e12] border border-brand-orange/30 p-6 text-right relative shadow-2xl"
+            >
+              <div className="flex items-center gap-3 border-b border-white/10 pb-3 mb-4">
+                <span className="text-xl">⚠️</span>
+                <h3 className="text-white font-black text-sm">تنبيه من تك فيكس</h3>
+              </div>
+              <p className="text-xs text-slate-300 font-bold leading-relaxed mb-6">
+                {customAlert.message}
+              </p>
+              <div className="flex flex-row-reverse">
+                <button 
+                  type="button"
+                  onClick={() => setCustomAlert(null)}
+                  className="px-6 py-2.5 bg-brand-orange hover:bg-brand-orange-dark text-black font-black text-xs rounded-none cursor-pointer transition-colors"
+                >
+                  حسناً 🎯
+                </button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 

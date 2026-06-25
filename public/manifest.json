@@ -1,0 +1,24 @@
+{
+  "short_name": "TechFix",
+  "name": "TechFix",
+  "description": "تطبيق تك فيكس لصيانة وإصلاح البوتجازات وسخانات الغاز المنزلية بمحافظة الجيزة",
+  "icons": [
+    {
+      "src": "https://placehold.co/192x192/0f0f1a/f97316/png?text=TechFix+192",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://placehold.co/512x512/0f0f1a/f97316/png?text=TechFix+512",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#111114",
+  "theme_color": "#f97316",
+  "display": "standalone",
+  "orientation": "portrait"
+}

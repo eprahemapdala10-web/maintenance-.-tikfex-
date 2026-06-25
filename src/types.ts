@@ -48,3 +48,43 @@ export interface TradeInData {
   city: string;
   notes: string;
 }
+
+export interface Technician {
+  id: number;
+  name: string;
+  phone: string;
+  city: string;
+  cities?: string[];
+  specialties?: string[];
+}
+
+export interface CustomerRecord {
+  id: string;
+  name: string;
+  phone: string;
+  city: string;
+  gov?: string;
+  address: string;
+  serviceType: string;
+  details?: string;
+  timestamp: string;
+}
+
+export interface CoverageArea {
+  name: string;
+  active: boolean;
+  gov?: string;
+}
+
+export interface Appliance {
+  id: number;
+  deviceType: "بوتاجاز" | "سخان" | "ثلاجة" | "ديب فريزر" | string;
+  brand: string;
+  condition: string;
+  usageDuration: string;
+  price: number;
+  imageUrl: string;
+  details: string;
+}
+
+

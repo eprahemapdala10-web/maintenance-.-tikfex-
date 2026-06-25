@@ -5,9 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     
     <!-- Premium SEO Meta Tags -->
+    <meta name="theme-color" content="#f97316" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+    <meta name="apple-mobile-web-app-title" content="TechFix" />
+    <link rel="apple-touch-icon" href="https://placehold.co/192x192/0f0f1a/f97316/png?text=TechFix+Icon" />
+    <link rel="manifest" href="/manifest.json" />
     <title>تك فيكس صيانة بوتجازات وسخانات غاز | الحوامدية، البدرشين، وكل مدن ومناطق محافظة الجيزة</title>
-    <meta name="description" content="مركز تك فيكس المعتمد لصيانة وإصلاح البوتجازات وسخانات الغاز المنزلية بأسعار اقتصادية وضمان حقيقي. خدمة فورية متميزة في الحوامدية، البدرشين، أبو النمرس، منيل شيحة، طموة، المريوطية، الهرم، فيصل، وسقارة. قطع غيار أصلية بضمان معتمد وبدون مصاريف انتقال خفية." />
-    <meta name="keywords" content="صيانة بوتجازات الجيزة, صيانة سخانات غاز الجيزة, فني بوتجازات الجيزة, تصليح بوتجازات الحوامدية, رقم فني بوتجاز البدرشين, فني سخانات غاز الحوامدية, قطع غيار بوتجازات الجيزة, صيانة بوتجازات مصر, تصليح سخانات غاز البدرشين, منيل شيحة صيانة بوتجازات, صيانة طموة, صيانة المريوطية, صيانة الهرم وفيصل, تصليح سخانات سقارة, قطع غيار سخانات الغاز مصر" />
+    <meta name="description" content="مركز تك فيكس المعتمد لصيانة وإصلاح البوتجازات وسخانات الغاز المنزلية بأسعار اقتصادية وضمان حقيقي. خدمة فورية متميزة في الحوامدية، البدرشين، أبو النمرس، منيل شيحة، طموة، المريوطية، سقارة، أبو صير، أم خنان، ومنى الأمير. قطع غيار أصلية بضمان معتمد وبدون مصاريف انتقال خفية." />
+    <meta name="keywords" content="صيانة بوتجازات الجيزة, صيانة سخانات غاز الجيزة, فني بوتجازات الجيزة, تصليح بوتجازات الحوامدية, رقم فني بوتجاز البدرشين, فني سخانات غاز الحوامدية, صيانة بوتجازات منيل شيحة, صيانة بوتجازات أم خنان, صيانة بوتجازات منى الأمير, تصليح سخانات غاز أبو صير, صيانة سقارة, صيانة المريوطية, قطع غيار بوتجازات الجيزة" />
     <meta name="author" content="TechFix" />
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
     <meta name="googlebot" content="index, follow" />
@@ -96,6 +102,10 @@
           },
           {
             "@type": "AdministrativeArea",
+            "name": "أبو صير"
+          },
+          {
+            "@type": "AdministrativeArea",
             "name": "أبو النمرس"
           },
           {
@@ -156,6 +166,33 @@
   <body class="bg-[#0f0f1a] text-white">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Force unregister any existing service workers and clear caches to solve the stale preview issue and prevent "Script error"
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then((registrations) => {
+          for (const registration of registrations) {
+            registration.unregister().then((success) => {
+              if (success) {
+                console.log('Service Worker unregistered successfully.');
+              }
+            });
+          }
+        }).catch((err) => {
+          console.error('Error unregistering service worker:', err);
+        });
+      }
+      if ('caches' in window) {
+        caches.keys().then((names) => {
+          for (const name of names) {
+            caches.delete(name).then(() => {
+              console.log('Cache cleared:', name);
+            });
+          }
+        }).catch((err) => {
+          console.error('Error clearing caches:', err);
+        });
+      }
+    </script>
   </body>
 </html>
 

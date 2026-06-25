@@ -1,5 +1,5 @@
 {
-  "name": "صيانة بوتجازات وسخانات - تك فيكس",
+  "name": "TechFix",
   "description": "مركز تك فيكس لصيانة البوتجازات وسخانات الغاز بأقل التكاليف وضمان معتمد في الحوامدية، البدرشين، وكافة مناطق الجيزة.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
